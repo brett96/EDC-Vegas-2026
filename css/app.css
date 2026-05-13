@@ -77,13 +77,13 @@ body {
   right: 0;
   bottom: 0;
   z-index: 600;
-  max-height: 46vh;
+  max-height: 52vh;
   display: flex;
   flex-direction: column;
   background: var(--panel);
   border-top: 1px solid var(--border);
   border-radius: 16px 16px 0 0;
-  padding-bottom: calc(12px + var(--safe-bottom));
+  padding-bottom: 0;
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
 }
 
@@ -93,6 +93,92 @@ body {
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.2);
   margin: 8px auto 4px;
+}
+
+.sheet-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 10px 6px;
+}
+
+.sheet-tab {
+  flex: 1;
+  padding: 10px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px 12px 0 0;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.sheet-tab[aria-selected="true"] {
+  color: var(--text);
+  background: rgba(255, 45, 196, 0.18);
+  border-color: var(--border);
+  border-bottom-color: transparent;
+}
+
+.sheet-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.venue-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 4px 12px 8px;
+  align-items: center;
+}
+
+.poi-search {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.poi-cat {
+  max-width: 46%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.poi-list {
+  max-height: 36vh;
+  min-height: 0;
+}
+
+.map-attribution {
+  margin: 0;
+  padding: 6px 14px calc(12px + var(--safe-bottom));
+  font-size: 0.65rem;
+  line-height: 1.35;
+  color: var(--muted);
+  opacity: 0.85;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.leaflet-tooltip.poi-tip {
+  background: rgba(18, 8, 32, 0.95);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .sheet-toolbar {

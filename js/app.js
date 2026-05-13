@@ -3,11 +3,100 @@
 
   const STORAGE_KEY = "edc2026_pins_v1";
   const SHARE_PREFIX = "share=";
+  const POI_DATA_URL = "/data/festival-pois.json";
+  const FESTIVAL_MAP_URL = "/assets/edclv_2026_festival_map.jpg";
 
-  /** Approximate LVMS infield bounds for georeferenced schematic map (not survey-grade). */
-  const MAP_BOUNDS = L.latLngBounds(L.latLng(36.268, -115.0178), L.latLng(36.2778, -115.0042));
+  /** LVMS infield center; north–south span chosen so 1080×1350 map matches tri-oval infield scale (approximate). */
+  const MAP_CENTER = { lat: 36.27225, lng: -115.01145 };
+  const MAP_NS_METERS = 1220;
+  const MAP_IMG_ASPECT = 1080 / 1350;
+
+  function buildMapBounds() {
+    const R = 111320;
+    const dLat = MAP_NS_METERS / R;
+    const cos = Math.cos((MAP_CENTER.lat * Math.PI) / 180);
+    const dLng = (MAP_NS_METERS * MAP_IMG_ASPECT) / (R * cos);
+    return L.latLngBounds(
+      [MAP_CENTER.lat - dLat / 2, MAP_CENTER.lng - dLng / 2],
+      [MAP_CENTER.lat + dLat / 2, MAP_CENTER.lng + dLng / 2]
+    );
+  }
+
+  const MAP_BOUNDS = buildMapBounds();
 
   const PIN_COLORS = ["#ff2dbe", "#00f5ff", "#39ff14", "#ffd400", "#c86bff", "#ff6b35", "#ffffff"];
+
+  const CATEGORY_LABELS = {
+    stage: "Stages",
+    art_installation: "Art installations",
+    art_car: "Art cars",
+    ride: "Rides",
+    restroom_ga: "Restrooms (GA)",
+    restroom_ga_plus: "Restrooms (GA+)",
+    restroom_ada: "ADA / accessible",
+    restroom_vip: "VIP restrooms",
+    first_aid: "First aid",
+    locker: "Lockers",
+    info: "Info",
+    vip: "VIP",
+    ground_control: "Ground Control",
+    general_store: "General store",
+    food_drink: "Food & drinks",
+    water_station: "Water stations",
+    lost_found: "Lost & Found",
+    photo_op: "Photo ops",
+    charging_station: "Charging",
+    cash_exchange: "Cash exchange",
+    wifi: "Wi-Fi",
+    merchandise: "Merchandise",
+    kandi_station: "Kandi station",
+    trinket_trade: "Trinket trade",
+    vip_barber: "VIP barber",
+    marquee_skydeck: "Marquee Skydeck",
+    vip_concierge: "VIP concierge",
+    vip_viewing: "VIP viewing",
+    vip_water: "VIP water",
+    passport: "Insomniac Passport",
+    consciousness_group: "Consciousness Group",
+    entrance: "Entrances",
+    other: "Other",
+  };
+
+  const CATEGORY_COLORS = {
+    stage: "#ff2dbe",
+    art_installation: "#c86bff",
+    art_car: "#ff6bc4",
+    ride: "#39ff14",
+    restroom_ga: "#6eb5ff",
+    restroom_ga_plus: "#9ed0ff",
+    restroom_ada: "#4a9eff",
+    restroom_vip: "#b894ff",
+    first_aid: "#ff4444",
+    locker: "#ff9e6b",
+    info: "#ffb347",
+    vip: "#ffd400",
+    ground_control: "#ff69b4",
+    general_store: "#c0c0c0",
+    food_drink: "#7dff9a",
+    water_station: "#00c8ff",
+    lost_found: "#ffe566",
+    photo_op: "#ff8c42",
+    charging_station: "#88aaff",
+    cash_exchange: "#66ff99",
+    wifi: "#66ffcc",
+    merchandise: "#d0d0d0",
+    kandi_station: "#ff99dd",
+    trinket_trade: "#99ddff",
+    vip_barber: "#ff6666",
+    marquee_skydeck: "#ddaaff",
+    vip_concierge: "#ffd580",
+    vip_viewing: "#eeccff",
+    vip_water: "#aaa0ff",
+    passport: "#ffffff",
+    consciousness_group: "#dda0dd",
+    entrance: "#00f5ff",
+    other: "#9a8ab8",
+  };
 
   const els = {
     map: document.getElementById("map"),
@@ -43,22 +132,43 @@
     importCancel: document.getElementById("import-cancel"),
     formImport: document.getElementById("form-import"),
     toast: document.getElementById("toast"),
+    tabMeetups: document.getElementById("tab-meetups"),
+    tabVenue: document.getElementById("tab-venue"),
+    panelMeetups: document.getElementById("panel-meetups"),
+    panelVenue: document.getElementById("panel-venue"),
+    poiSearch: document.getElementById("poi-search"),
+    poiCat: document.getElementById("poi-cat"),
+    poiList: document.getElementById("poi-list"),
   };
 
   let map;
   let userMarker;
   let pinsLayer;
+  let poiLayer;
   const leafletMarkers = new Map();
+  const poiMarkers = new Map();
+  let allPois = [];
   let lastPosition = null;
   let lastHeadingFromMotion = null;
   let compassHeading = null;
-  let activeNavPin = null;
+  /** @type {{ kind: 'pin'|'poi', id: string, name: string, lat: number, lng: number, category?: string } | null} */
+  let activeNavTarget = null;
   let geoWatchId = null;
   let navInterval = null;
   let orientationHooked = false;
 
   function uid() {
     return crypto.randomUUID ? crypto.randomUUID() : "p-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  function uvToLatLng(bounds, u, v) {
+    const north = bounds.getNorth();
+    const south = bounds.getSouth();
+    const west = bounds.getWest();
+    const east = bounds.getEast();
+    const lat = north - v * (north - south);
+    const lng = west + u * (east - west);
+    return L.latLng(lat, lng);
   }
 
   function onDeviceOrientation(e) {
@@ -178,18 +288,125 @@
 
   function initMap() {
     map = L.map(els.map, {
-      maxBounds: MAP_BOUNDS.pad(0.25),
+      maxBounds: MAP_BOUNDS.pad(0.12),
       zoomControl: true,
       attributionControl: false,
-      minZoom: 13,
-      maxZoom: 19,
+      minZoom: 12,
+      maxZoom: 20,
     });
 
-    L.imageOverlay("/assets/edc-map.svg", MAP_BOUNDS).addTo(map);
+    L.imageOverlay(FESTIVAL_MAP_URL, MAP_BOUNDS).addTo(map);
     map.fitBounds(MAP_BOUNDS);
 
     userMarker = L.marker(MAP_BOUNDS.getCenter(), { icon: userIcon() }).addTo(map);
     pinsLayer = L.layerGroup().addTo(map);
+    poiLayer = L.layerGroup().addTo(map);
+  }
+
+  function populatePoiCategoryFilter() {
+    const cats = [...new Set(allPois.map((p) => p.category))].sort();
+    els.poiCat.innerHTML = '<option value="">All categories</option>';
+    cats.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = CATEGORY_LABELS[c] || c;
+      els.poiCat.appendChild(opt);
+    });
+  }
+
+  function filteredPois() {
+    const q = (els.poiSearch.value || "").trim().toLowerCase();
+    const cat = els.poiCat.value;
+    return allPois.filter((p) => {
+      if (cat && p.category !== cat) return false;
+      if (!q) return true;
+      return p.name.toLowerCase().includes(q) || (CATEGORY_LABELS[p.category] || "").toLowerCase().includes(q);
+    });
+  }
+
+  function renderPoiList() {
+    const list = filteredPois();
+    els.poiList.innerHTML = "";
+    list.forEach((p) => {
+      const li = document.createElement("li");
+      li.className = "pin-item poi-item";
+      const active = activeNavTarget && activeNavTarget.kind === "poi" && activeNavTarget.id === p.id;
+      li.dataset.active = active ? "true" : "false";
+      const col = CATEGORY_COLORS[p.category] || "#888";
+      li.innerHTML = `
+        <div class="pin-swatch" style="background:${col}"></div>
+        <div class="pin-meta">
+          <div class="pin-name"></div>
+          <div class="pin-ll"></div>
+        </div>
+        <div class="pin-actions">
+          <button type="button" data-a="go">Navigate</button>
+          <button type="button" data-a="map">Map</button>
+        </div>`;
+      li.querySelector(".pin-name").textContent = p.name;
+      li.querySelector(".pin-ll").textContent = CATEGORY_LABELS[p.category] || p.category;
+      li.querySelector('[data-a="go"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        openNavForPoi(p.id);
+      });
+      li.querySelector('[data-a="map"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        const mk = poiMarkers.get(p.id);
+        if (mk) map.flyTo(mk.getLatLng(), Math.max(map.getZoom(), 17), { duration: 0.45 });
+      });
+      li.addEventListener("click", () => {
+        const mk = poiMarkers.get(p.id);
+        if (mk) map.flyTo(mk.getLatLng(), Math.max(map.getZoom(), 16), { duration: 0.4 });
+      });
+      els.poiList.appendChild(li);
+    });
+  }
+
+  function buildPoiMarkers() {
+    poiLayer.clearLayers();
+    poiMarkers.clear();
+    allPois.forEach((p) => {
+      const ll = uvToLatLng(MAP_BOUNDS, p.u, p.v);
+      p.lat = ll.lat;
+      p.lng = ll.lng;
+      const col = CATEGORY_COLORS[p.category] || "#888";
+      const m = L.circleMarker(ll, {
+        radius: 5,
+        color: "#0a0514",
+        weight: 1,
+        fillColor: col,
+        fillOpacity: 0.92,
+      });
+      m.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
+        openNavForPoi(p.id);
+      });
+      m.bindTooltip(p.name, { sticky: true, direction: "top", opacity: 0.95, className: "poi-tip" });
+      m.addTo(poiLayer);
+      poiMarkers.set(p.id, m);
+    });
+  }
+
+  async function loadFestivalPois() {
+    try {
+      const res = await fetch(POI_DATA_URL, { cache: "force-cache" });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      const raw = data.pois || [];
+      allPois = raw.map((row) => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        u: row.u,
+        v: row.v,
+      }));
+      buildPoiMarkers();
+      populatePoiCategoryFilter();
+      renderPoiList();
+    } catch (err) {
+      console.error(err);
+      toast("Venue points failed to load — open online once, then retry.");
+    }
   }
 
   function syncMarkersFromPins(pins) {
@@ -224,7 +441,8 @@
     pins.forEach((p) => {
       const li = document.createElement("li");
       li.className = "pin-item";
-      li.dataset.active = activeNavPin && activeNavPin.id === p.id ? "true" : "false";
+      const active = activeNavTarget && activeNavTarget.kind === "pin" && activeNavTarget.id === p.id;
+      li.dataset.active = active ? "true" : "false";
       li.innerHTML = `
         <div class="pin-swatch" style="background:${p.color || PIN_COLORS[0]}"></div>
         <div class="pin-meta">
@@ -256,27 +474,42 @@
   function removePin(id) {
     const next = loadPins().filter((p) => p.id !== id);
     savePins(next);
-    if (activeNavPin && activeNavPin.id === id) closeNav();
+    if (activeNavTarget && activeNavTarget.kind === "pin" && activeNavTarget.id === id) closeNav();
     syncMarkersFromPins(next);
     renderPinList();
   }
 
-  function openNavForPin(id) {
-    const p = loadPins().find((x) => x.id === id);
-    if (!p) return;
-    activeNavPin = p;
+  function openNavTo(target) {
+    activeNavTarget = target;
     els.navOverlay.dataset.open = "true";
     els.navOverlay.setAttribute("aria-hidden", "false");
-    els.navTitle.textContent = p.name;
-    els.navSub.textContent = "Arrow points toward your meetup";
+    els.navTitle.textContent = target.name;
+    if (target.kind === "pin") {
+      els.navSub.textContent = "Your saved meetup pin";
+    } else {
+      els.navSub.textContent = (CATEGORY_LABELS[target.category] || target.category || "Venue") + " · festival map";
+    }
     renderPinList();
+    renderPoiList();
     updateNavReadout();
     if (navInterval) clearInterval(navInterval);
     navInterval = setInterval(updateNavReadout, 450);
   }
 
+  function openNavForPin(id) {
+    const p = loadPins().find((x) => x.id === id);
+    if (!p) return;
+    openNavTo({ kind: "pin", id: p.id, name: p.name, lat: p.lat, lng: p.lng });
+  }
+
+  function openNavForPoi(id) {
+    const p = allPois.find((x) => x.id === id);
+    if (!p || !Number.isFinite(p.lat)) return;
+    openNavTo({ kind: "poi", id: p.id, name: p.name, lat: p.lat, lng: p.lng, category: p.category });
+  }
+
   function closeNav() {
-    activeNavPin = null;
+    activeNavTarget = null;
     els.navOverlay.dataset.open = "false";
     els.navOverlay.setAttribute("aria-hidden", "true");
     if (navInterval) {
@@ -284,6 +517,7 @@
       navInterval = null;
     }
     renderPinList();
+    renderPoiList();
   }
 
   function headingForArrow() {
@@ -297,7 +531,7 @@
   }
 
   function updateNavReadout() {
-    if (!activeNavPin || !lastPosition) {
+    if (!activeNavTarget || !lastPosition) {
       els.navDistance.textContent = "—";
       els.navBearing.textContent = "Waiting for GPS…";
       els.arrowWrap.style.transform = "rotate(0deg)";
@@ -305,7 +539,7 @@
       return;
     }
     const here = { lat: lastPosition.coords.latitude, lng: lastPosition.coords.longitude };
-    const there = { lat: activeNavPin.lat, lng: activeNavPin.lng };
+    const there = { lat: activeNavTarget.lat, lng: activeNavTarget.lng };
     const dist = haversineM(here, there);
     const brg = bearingDeg(here, there);
     els.navDistance.textContent = formatDist(dist);
@@ -492,7 +726,21 @@
     else history.replaceState(null, "", location.pathname + location.search);
   }
 
+  function setSheetTab(which) {
+    const isMeet = which === "meetups";
+    els.tabMeetups.setAttribute("aria-selected", isMeet ? "true" : "false");
+    els.tabVenue.setAttribute("aria-selected", !isMeet ? "true" : "false");
+    els.panelMeetups.hidden = !isMeet;
+    els.panelVenue.hidden = isMeet;
+  }
+
   function wireUi() {
+    els.tabMeetups.addEventListener("click", () => setSheetTab("meetups"));
+    els.tabVenue.addEventListener("click", () => setSheetTab("venue"));
+
+    els.poiSearch.addEventListener("input", () => renderPoiList());
+    els.poiCat.addEventListener("change", () => renderPoiList());
+
     els.btnCenter.addEventListener("click", () => {
       if (userMarker) map.flyTo(userMarker.getLatLng(), Math.max(map.getZoom(), 16), { duration: 0.5 });
       startGeolocation();
@@ -583,14 +831,18 @@
 
     els.navClose.addEventListener("click", () => closeNav());
     els.navMap.addEventListener("click", () => {
-      if (!activeNavPin) return;
-      const mk = leafletMarkers.get(activeNavPin.id);
-      if (mk) map.flyTo(mk.getLatLng(), 17, { duration: 0.5 });
+      if (!activeNavTarget) return;
+      if (activeNavTarget.kind === "pin") {
+        const mk = leafletMarkers.get(activeNavTarget.id);
+        if (mk) map.flyTo(mk.getLatLng(), 17, { duration: 0.5 });
+      } else {
+        map.flyTo([activeNavTarget.lat, activeNavTarget.lng], 18, { duration: 0.5 });
+      }
       closeNav();
     });
   }
 
-  function boot() {
+  async function boot() {
     initMap();
     registerSw();
     wireUi();
@@ -606,6 +858,7 @@
     renderPinList();
     startGeolocation();
     tryConsumeHashImport();
+    await loadFestivalPois();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

@@ -1,5 +1,5 @@
 /* Offline shell for EDC Vegas 2026 PWA — precache all static assets */
-const CACHE = "edc-vegas-2026-v2";
+const CACHE = "edc-vegas-2026-v3";
 
 const ASSETS = [
   "/",
@@ -7,7 +7,8 @@ const ASSETS = [
   "/manifest.webmanifest",
   "/css/app.css",
   "/js/app.js",
-  "/assets/edc-map.svg",
+  "/data/festival-pois.json",
+  "/assets/edclv_2026_festival_map.jpg",
   "/vendor/leaflet/leaflet.js",
   "/vendor/leaflet/leaflet.css",
   "/vendor/leaflet/images/marker-icon.png",

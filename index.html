@@ -26,17 +26,37 @@
       <span id="offline-badge" class="offline-badge" data-state="pending">cache…</span>
     </header>
 
-    <section class="sheet" aria-label="Meetup pins and tools">
+    <section class="sheet" aria-label="Meetups and venue map">
       <div class="sheet-handle" aria-hidden="true"></div>
-      <div class="sheet-toolbar">
-        <button type="button" class="btn btn-primary" id="btn-center">Center on me</button>
-        <button type="button" class="btn" id="btn-pin">Drop pin here</button>
-        <button type="button" class="btn" id="btn-share">Share pins</button>
-        <button type="button" class="btn btn-ghost" id="btn-import">Import</button>
-        <button type="button" class="btn btn-ghost" id="btn-compass">Enable compass</button>
+      <div class="sheet-tabs" role="tablist" aria-label="Bottom panel">
+        <button type="button" class="sheet-tab" role="tab" id="tab-meetups" aria-controls="panel-meetups" aria-selected="true">
+          Meetups
+        </button>
+        <button type="button" class="sheet-tab" role="tab" id="tab-venue" aria-controls="panel-venue" aria-selected="false">
+          Venue map
+        </button>
       </div>
-      <div id="coord-strip" class="coord-strip">GPS: waiting for permission…</div>
-      <ul id="pin-list" class="pin-list" aria-live="polite"></ul>
+      <div id="panel-meetups" class="sheet-panel" role="tabpanel" aria-labelledby="tab-meetups">
+        <div class="sheet-toolbar">
+          <button type="button" class="btn btn-primary" id="btn-center">Center on me</button>
+          <button type="button" class="btn" id="btn-pin">Drop pin here</button>
+          <button type="button" class="btn" id="btn-share">Share pins</button>
+          <button type="button" class="btn btn-ghost" id="btn-import">Import</button>
+          <button type="button" class="btn btn-ghost" id="btn-compass">Enable compass</button>
+        </div>
+        <div id="coord-strip" class="coord-strip">GPS: waiting for permission…</div>
+        <ul id="pin-list" class="pin-list" aria-live="polite"></ul>
+      </div>
+      <div id="panel-venue" class="sheet-panel" role="tabpanel" aria-labelledby="tab-venue" hidden>
+        <div class="venue-toolbar">
+          <input type="search" id="poi-search" class="poi-search" placeholder="Search stages, restrooms, rides…" autocomplete="off" />
+          <select id="poi-cat" class="poi-cat" aria-label="Filter by category"></select>
+        </div>
+        <ul id="poi-list" class="pin-list poi-list" aria-live="polite"></ul>
+      </div>
+      <p class="map-attribution">
+        Festival map © Insomniac / EDC Las Vegas · GPS overlay is approximate; tap map markers or list items to navigate offline.
+      </p>
     </section>
 
     <div id="nav-overlay" class="nav-overlay" data-open="false" aria-hidden="true">
