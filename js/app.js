@@ -39,7 +39,8 @@
   /**
    * LVMS infield rectangle (landscape). Used to convert each POI's normalized
    * (u, v) layout coordinate into latitude/longitude over the real venue.
-   * Tweak in 5–10 m increments after a field check.
+   * Tweak in 5–10 m increments after a field check. POI (u,v) values are traced from
+   * assets/edc_map.jpg; they are not derived from Google Maps north-up imagery alone.
    */
   const INFIELD_BOUNDS = L.latLngBounds(
     [36.2685, -115.0175], // SW
@@ -320,35 +321,196 @@
   }
 
   /**
-   * Approximate stage / major zones in festival-map (u,v). Translucent overlays only.
-   * box = [minU, minV, maxU, maxV] in artwork space (0–1).
+   * Stage / major zones in festival-map artwork (u,v). Each `uvRing` is a simple polygon
+   * in artwork space (0–1, origin top-left). Rings are a non-overlapping partition of the
+   * infield layout (shared boundary edges only) so translucent fills do not stack.
+   * Shapes follow edc_map.jpg more closely than axis-aligned rectangles; lat/lng still
+   * comes from `uvToLatLng` after `ARTWORK_ROTATION_DEG`.
    */
   const STAGE_UV_ZONES = [
-    { name: "kineticFIELD", fill: "#ff2dbe", box: [0.38, 0.02, 0.62, 0.24] },
-    { name: "quantumVALLEY", fill: "#c86bff", box: [0.56, 0.18, 0.80, 0.34] },
-    { name: "neonGARDEN", fill: "#39ff14", box: [0.56, 0.36, 0.82, 0.58] },
-    { name: "circuitGROUNDS", fill: "#ff6bc4", box: [0.52, 0.66, 0.80, 0.94] },
-    { name: "bassPOD", fill: "#00f5ff", box: [0.38, 0.68, 0.62, 0.88] },
-    { name: "wasteLAND", fill: "#ff9e40", box: [0.06, 0.62, 0.34, 0.88] },
-    { name: "cosmicMEADOW", fill: "#6eb5ff", box: [0.02, 0.34, 0.28, 0.56] },
-    { name: "stereoBLOOM", fill: "#ffd400", box: [0.22, 0.22, 0.42, 0.40] },
-    { name: "bionicJUNGLE", fill: "#7dff9a", box: [0.06, 0.08, 0.30, 0.30] },
-    { name: "Downtown EDC", fill: "#9a8ab8", box: [0.36, 0.46, 0.56, 0.64] },
-    { name: "Rainbow Bazaar", fill: "#dda0dd", box: [0.38, 0.36, 0.56, 0.48] },
-    { name: "Camp EDC", fill: "#88aaff", box: [0.02, 0.48, 0.18, 0.70] },
+    {
+      name: "bionicJUNGLE",
+      fill: "#7dff9a",
+      uvRing: [
+        [0.04, 0.06],
+        [0.36, 0.04],
+        [0.42, 0.22],
+        [0.28, 0.26],
+        [0.08, 0.28],
+      ],
+    },
+    {
+      name: "stereoBLOOM",
+      fill: "#ffd400",
+      uvRing: [
+        [0.28, 0.26],
+        [0.42, 0.22],
+        [0.44, 0.24],
+        [0.38, 0.38],
+        [0.24, 0.4],
+      ],
+    },
+    {
+      name: "kineticFIELD",
+      fill: "#ff2dbe",
+      uvRing: [
+        [0.42, 0.22],
+        [0.44, 0.06],
+        [0.56, 0.04],
+        [0.56, 0.2],
+        [0.5, 0.22],
+      ],
+    },
+    {
+      name: "quantumVALLEY",
+      fill: "#c86bff",
+      uvRing: [
+        [0.56, 0.04],
+        [0.9, 0.06],
+        [0.9, 0.14],
+        [0.88, 0.32],
+        [0.56, 0.32],
+      ],
+    },
+    {
+      name: "cosmicMEADOW",
+      fill: "#6eb5ff",
+      uvRing: [
+        [0.04, 0.32],
+        [0.24, 0.4],
+        [0.34, 0.5],
+        [0.36, 0.5],
+        [0.18, 0.52],
+        [0.04, 0.48],
+      ],
+    },
+    {
+      name: "Rainbow Bazaar",
+      fill: "#dda0dd",
+      uvRing: [
+        [0.4, 0.36],
+        [0.54, 0.34],
+        [0.56, 0.48],
+        [0.4, 0.48],
+        [0.4, 0.4],
+      ],
+    },
+    {
+      name: "neonGARDEN",
+      fill: "#39ff14",
+      uvRing: [
+        [0.56, 0.32],
+        [0.88, 0.32],
+        [0.9, 0.46],
+        [0.9, 0.605],
+        [0.74, 0.605],
+        [0.58, 0.605],
+        [0.56, 0.48],
+      ],
+    },
+    {
+      name: "Downtown EDC",
+      fill: "#9a8ab8",
+      uvRing: [
+        [0.36, 0.5],
+        [0.56, 0.48],
+        [0.56, 0.64],
+        [0.36, 0.64],
+      ],
+    },
+    {
+      name: "Camp EDC",
+      fill: "#88aaff",
+      uvRing: [
+        [0.02, 0.52],
+        [0.14, 0.52],
+        [0.12, 0.58],
+        [0.08, 0.6],
+        [0.04, 0.6],
+        [0.02, 0.56],
+      ],
+    },
+    {
+      name: "wasteLAND",
+      fill: "#ff9e40",
+      uvRing: [
+        [0.04, 0.64],
+        [0.22, 0.63],
+        [0.34, 0.64],
+        [0.36, 0.76],
+        [0.32, 0.9],
+        [0.1, 0.93],
+        [0.06, 0.94],
+        [0.04, 0.78],
+      ],
+    },
+    {
+      name: "bassPOD",
+      fill: "#00f5ff",
+      uvRing: [
+        [0.36, 0.64],
+        [0.56, 0.64],
+        [0.56, 0.86],
+        [0.52, 0.9],
+        [0.4, 0.9],
+        [0.36, 0.8],
+      ],
+    },
+    {
+      name: "circuitGROUNDS",
+      fill: "#ff6bc4",
+      uvRing: [
+        [0.56, 0.615],
+        [0.72, 0.615],
+        [0.88, 0.615],
+        [0.9, 0.78],
+        [0.88, 0.92],
+        [0.7, 0.93],
+        [0.58, 0.94],
+        [0.56, 0.8],
+      ],
+    },
   ];
 
-  function uvBoxToRing(box) {
-    const u1 = box[0];
-    const v1 = box[1];
-    const u2 = box[2];
-    const v2 = box[3];
-    return [
-      uvToLatLng(MAP_BOUNDS, u1, v1),
-      uvToLatLng(MAP_BOUNDS, u2, v1),
-      uvToLatLng(MAP_BOUNDS, u2, v2),
-      uvToLatLng(MAP_BOUNDS, u1, v2),
-    ];
+  function uvRingToLatLngRing(uvRing) {
+    return uvRing.map(([u, v]) => uvToLatLng(MAP_BOUNDS, u, v));
+  }
+
+  /** Centroid of a simple polygon in (u,v) artwork space (for label anchor). */
+  function uvPolygonCentroid(uvRing) {
+    const n = uvRing.length;
+    if (n === 0) return [0.5, 0.5];
+    if (n < 3) {
+      let su = 0;
+      let sv = 0;
+      uvRing.forEach(([u, v]) => {
+        su += u;
+        sv += v;
+      });
+      return [su / n, sv / n];
+    }
+    let twice = 0;
+    let cx = 0;
+    let cy = 0;
+    for (let i = 0; i < n; i++) {
+      const [x0, y0] = uvRing[i];
+      const [x1, y1] = uvRing[(i + 1) % n];
+      const cr = x0 * y1 - x1 * y0;
+      twice += cr;
+      cx += (x0 + x1) * cr;
+      cy += (y0 + y1) * cr;
+    }
+    if (Math.abs(twice) < 1e-12) {
+      let su = 0;
+      let sv = 0;
+      uvRing.forEach(([u, v]) => {
+        su += u;
+        sv += v;
+      });
+      return [su / n, sv / n];
+    }
+    const inv = 1 / (3 * twice);
+    return [cx * inv, cy * inv];
   }
 
   function stageLabelIcon(name) {
@@ -366,9 +528,8 @@
     stageFillLayer.clearLayers();
     stageLabelLayer.clearLayers();
     STAGE_UV_ZONES.forEach((z) => {
-      const ring = uvBoxToRing(z.box);
-      const cx = (z.box[0] + z.box[2]) / 2;
-      const cy = (z.box[1] + z.box[3]) / 2;
+      const ring = uvRingToLatLngRing(z.uvRing);
+      const [cx, cy] = uvPolygonCentroid(z.uvRing);
       L.polygon(ring, {
         stroke: true,
         color: z.fill,
