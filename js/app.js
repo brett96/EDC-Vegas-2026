@@ -212,8 +212,6 @@
   /** @type {{ kind: 'pin'|'poi', id: string, name: string, lat: number, lng: number, category?: string } | null} */
   let activeNavTarget = null;
   let geoWatchId = null;
-  /** True while the nav overlay is open — GPS watch uses fresher fixes (lower maximumAge). */
-  let geoWatchNavMode = false;
   /** We pushed a history entry when opening nav so the device back button closes the overlay. */
   let navHistoryPushed = false;
   let navInterval = null;
@@ -906,13 +904,11 @@
       } catch (_) {
         navHistoryPushed = false;
       }
-      geoWatchNavMode = true;
-      startGeolocation();
       if (navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === "function") {
         navigator.geolocation.getCurrentPosition(onGeoSuccess, () => {}, {
           enableHighAccuracy: true,
           maximumAge: 0,
-          timeout: 12000,
+          timeout: 10000,
         });
       }
     }
@@ -954,8 +950,6 @@
       navReadoutRaf = null;
     }
     lastNavMiniMapFitAt = 0;
-    geoWatchNavMode = false;
-    startGeolocation();
     renderPinList();
     renderPoiList();
     if (fromPop) {
@@ -968,16 +962,19 @@
 
   /**
    * Heading that can drive the live compass UI: magnetometer / gyro compass
-   * (deviceorientation) or GPS-reported course while moving — not a heading
-   * inferred only from successive position fixes.
+   * (deviceorientation) or GPS-reported course — not a heading inferred only
+   * from successive position fixes.
+   * Many mobile browsers omit `speed` while still reporting `heading`; only
+   * ignore course when speed is known and clearly stationary.
    */
   function navRealtimeHeading() {
     if (typeof compassHeading === "number" && !Number.isNaN(compassHeading)) return compassHeading;
-    if (lastPosition && typeof lastPosition.coords.heading === "number" && !Number.isNaN(lastPosition.coords.heading)) {
-      const sp = lastPosition.coords.speed;
-      if (sp != null && sp > 0.4) return lastPosition.coords.heading;
-    }
-    return null;
+    if (!lastPosition) return null;
+    const h = lastPosition.coords.heading;
+    if (typeof h !== "number" || Number.isNaN(h) || h < 0) return null;
+    const sp = lastPosition.coords.speed;
+    if (sp != null && Number.isFinite(sp) && sp <= 0.35) return null;
+    return h;
   }
 
   function buildNavCompassFallbackMessage(hasGps) {
@@ -999,14 +996,10 @@
     if (typeof DeviceOrientationEvent.requestPermission === "function" && !compassEnabled) {
       return "Turn Compass on below. When Safari asks, allow Motion & Orientation access so the magnetometer-based arrow can appear.";
     }
-    // Don't show this message if we can still drive the arrow accurately via GPS course.
-    if (compassEnabled && navRealtimeHeading() == null && typeof compassHeading !== "number") {
-      return "Compass is on but no sensor heading yet. Hold the phone flat, away from speakers and metal, and turn slowly. If nothing appears, confirm motion permission is allowed for this site.";
+    if (compassEnabled) {
+      return "Direction can come from GPS as you move. Hold the phone flat and turn slowly for sensor heading, or walk in a straight line if the arrow is slow to settle.";
     }
-    if (!compassEnabled) {
-      return "Turn Compass on below (and allow motion if prompted), or walk several meters in a line so GPS can report your heading while you move.";
-    }
-    return "No live heading yet. Keep moving for a GPS course, or use the Compass switch for sensor-based direction.";
+    return "Turn Compass on below (and allow motion if prompted), or walk several meters in a line so GPS can report your heading while you move.";
   }
 
   function syncNavCompassPanel() {
@@ -1096,10 +1089,11 @@
       return;
     }
     if (geoWatchId != null) navigator.geolocation.clearWatch(geoWatchId);
-    const opts = geoWatchNavMode
-      ? { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-      : { enableHighAccuracy: true, maximumAge: 2500, timeout: 20000 };
-    geoWatchId = navigator.geolocation.watchPosition(onGeoSuccess, onGeoErr, opts);
+    geoWatchId = navigator.geolocation.watchPosition(onGeoSuccess, onGeoErr, {
+      enableHighAccuracy: true,
+      maximumAge: 750,
+      timeout: 20000,
+    });
   }
 
   function syncCompassToggle(on) {
