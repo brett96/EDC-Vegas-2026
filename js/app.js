@@ -212,7 +212,15 @@
   /** @type {{ kind: 'pin'|'poi', id: string, name: string, lat: number, lng: number, category?: string } | null} */
   let activeNavTarget = null;
   let geoWatchId = null;
+  /** True while the nav overlay is open — GPS watch uses fresher fixes (lower maximumAge). */
+  let geoWatchNavMode = false;
+  /** We pushed a history entry when opening nav so the device back button closes the overlay. */
+  let navHistoryPushed = false;
   let navInterval = null;
+  /** Throttle expensive minimap refits so GPS callbacks stay snappy. */
+  let lastNavMiniMapFitAt = 0;
+  /** Coalesce compass DOM updates to one per animation frame. */
+  let navReadoutRaf = null;
   let orientationHooked = false;
   let compassEnabled = false;
   /** User or OS blocked motion/orientation (e.g. iOS Safari prompt denied). */
@@ -345,6 +353,15 @@
     });
   }
 
+  function scheduleNavReadoutFromOrientation() {
+    if (els.navOverlay.dataset.open !== "true") return;
+    if (navReadoutRaf != null) return;
+    navReadoutRaf = requestAnimationFrame(() => {
+      navReadoutRaf = null;
+      updateNavReadout();
+    });
+  }
+
   function onDeviceOrientation(e) {
     if (typeof e.webkitCompassHeading === "number") {
       // iOS: proprietary but reliable true-north heading
@@ -354,7 +371,7 @@
       // Convert to standard compass bearing (clockwise, 90 = East).
       compassHeading = (360 - e.alpha) % 360;
     }
-    if (els.navOverlay.dataset.open === "true") updateNavReadout();
+    scheduleNavReadoutFromOrientation();
   }
 
   function loadPins() {
@@ -871,6 +888,7 @@
 
   function openNavTo(target) {
     if (map) map.closePopup();
+    const wasClosed = els.navOverlay.dataset.open !== "true";
     activeNavTarget = target;
     els.navOverlay.dataset.open = "true";
     els.navOverlay.setAttribute("aria-hidden", "false");
@@ -880,11 +898,29 @@
     } else {
       els.navSub.textContent = (CATEGORY_LABELS[target.category] || target.category || "Venue") + " · festival map";
     }
+    if (wasClosed) {
+      lastNavMiniMapFitAt = 0;
+      try {
+        history.pushState({ edc2026Nav: 1 }, "", location.href);
+        navHistoryPushed = true;
+      } catch (_) {
+        navHistoryPushed = false;
+      }
+      geoWatchNavMode = true;
+      startGeolocation();
+      if (navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === "function") {
+        navigator.geolocation.getCurrentPosition(onGeoSuccess, () => {}, {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 12000,
+        });
+      }
+    }
     renderPinList();
     renderPoiList();
     updateNavReadout();
     if (navInterval) clearInterval(navInterval);
-    navInterval = setInterval(updateNavReadout, 450);
+    navInterval = setInterval(updateNavReadout, 120);
     requestAnimationFrame(() => {
       initNavMap();
       updateNavMiniMap();
@@ -903,7 +939,9 @@
     openNavTo({ kind: "poi", id: p.id, name: p.name, lat: p.lat, lng: p.lng, category: p.category });
   }
 
-  function closeNav() {
+  function closeNav(opts) {
+    const fromPop = opts && opts.fromPopstate;
+    if (els.navOverlay.dataset.open !== "true") return;
     activeNavTarget = null;
     els.navOverlay.dataset.open = "false";
     els.navOverlay.setAttribute("aria-hidden", "true");
@@ -911,8 +949,21 @@
       clearInterval(navInterval);
       navInterval = null;
     }
+    if (navReadoutRaf != null) {
+      cancelAnimationFrame(navReadoutRaf);
+      navReadoutRaf = null;
+    }
+    lastNavMiniMapFitAt = 0;
+    geoWatchNavMode = false;
+    startGeolocation();
     renderPinList();
     renderPoiList();
+    if (fromPop) {
+      navHistoryPushed = false;
+    } else if (navHistoryPushed) {
+      navHistoryPushed = false;
+      history.back();
+    }
   }
 
   /**
@@ -1045,11 +1096,10 @@
       return;
     }
     if (geoWatchId != null) navigator.geolocation.clearWatch(geoWatchId);
-    geoWatchId = navigator.geolocation.watchPosition(onGeoSuccess, onGeoErr, {
-      enableHighAccuracy: true,
-      maximumAge: 2000,
-      timeout: 20000,
-    });
+    const opts = geoWatchNavMode
+      ? { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+      : { enableHighAccuracy: true, maximumAge: 2500, timeout: 20000 };
+    geoWatchId = navigator.geolocation.watchPosition(onGeoSuccess, onGeoErr, opts);
   }
 
   function syncCompassToggle(on) {
@@ -1218,17 +1268,22 @@
 
   function updateNavMiniMap() {
     if (!navMap || !activeNavTarget) return;
+    const now = typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
     const targetLL = L.latLng(activeNavTarget.lat, activeNavTarget.lng);
     navMapTargetMk.setLatLng(targetLL);
     if (lastPosition) {
       const here = L.latLng(lastPosition.coords.latitude, lastPosition.coords.longitude);
       navMapUserMk.setLatLng(here);
       navMapLine.setLatLngs([here, targetLL]);
-      navMap.fitBounds(L.latLngBounds([here, targetLL]).pad(0.35), { animate: false });
+      if (now - lastNavMiniMapFitAt >= 380) {
+        lastNavMiniMapFitAt = now;
+        navMap.fitBounds(L.latLngBounds([here, targetLL]).pad(0.35), { animate: false });
+      }
     } else {
       navMapUserMk.setLatLng(targetLL);
       navMapLine.setLatLngs([]);
       navMap.setView(targetLL, 17, { animate: false });
+      lastNavMiniMapFitAt = now;
     }
     navMap.invalidateSize();
   }
@@ -1713,6 +1768,10 @@
 
     wireSplitter();
     window.addEventListener("resize", onWindowResizePanel);
+
+    window.addEventListener("popstate", () => {
+      if (els.navOverlay && els.navOverlay.dataset.open === "true") closeNav({ fromPopstate: true });
+    });
   }
 
   async function boot() {
