@@ -22,8 +22,13 @@
   }
 
   const POI_DATA_URL = asset("data/festival-pois.json");
-  /** Leaflet needs literal `{z}/{x}/{y}` — `new URL()` encodes `{` and breaks tiles. */
+  /**
+   * Bundled LVMS raster tiles (precached; used offline and as underlay when online).
+   * Leaflet needs literal `{z}/{x}/{y}` — `new URL()` encodes `{` and breaks tiles.
+   */
   const BASEMAP_TILE_URL = ASSET_BASE_URL.replace(/\/?$/, "/") + "tiles/{z}/{x}/{y}.png";
+  /** Standard OpenStreetMap raster tiles when online (world map on top of local tiles). */
+  const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
   /**
    * LVMS infield rectangle (landscape). Used to convert each POI's normalized
@@ -655,16 +660,15 @@
       maxZoom: 19,
     });
 
-    // Online world tiles (only used when the device is connected).
-    onlineTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
+    // Online: OpenStreetMap world tiles on top; local bundled LVMS tiles underneath (warm cache, visible if OSM gaps).
+    onlineTiles = L.tileLayer(OSM_TILE_URL, {
       minZoom: 2,
       maxZoom: 19,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · online',
+        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · online',
     });
 
-    // Offline bundled EDC-area tiles.
+    // Offline bundled EDC-area tiles (also underlay when online).
     offlineTiles = L.tileLayer(BASEMAP_TILE_URL, {
       minZoom: 12,
       maxZoom: 19,
@@ -673,13 +677,13 @@
       tileSize: 256,
       bounds: WIDE_BOUNDS,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · offline',
+        'EDC LVMS · local tiles · data © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors',
     });
 
     if (startOnline) {
-      onlineTiles.addTo(map);
       offlineTiles.addTo(map);
-      offlineTiles.bringToFront();
+      onlineTiles.addTo(map);
+      onlineTiles.bringToFront();
     } else {
       offlineTiles.addTo(map);
     }
@@ -716,9 +720,9 @@
           map.setMaxBounds(WORLD_BOUNDS);
         } catch (_) {}
 
-        if (onlineTiles && !map.hasLayer(onlineTiles)) onlineTiles.addTo(map);
         if (offlineTiles && !map.hasLayer(offlineTiles)) offlineTiles.addTo(map);
-        if (offlineTiles) offlineTiles.bringToFront();
+        if (onlineTiles && !map.hasLayer(onlineTiles)) onlineTiles.addTo(map);
+        if (onlineTiles) onlineTiles.bringToFront();
       } else {
         // Offline: remove online tiles, lock bounds, and snap back to EDC.
         if (onlineTiles && map.hasLayer(onlineTiles)) map.removeLayer(onlineTiles);
@@ -1336,8 +1340,7 @@
       maxZoom: 19,
     });
 
-    navMapOnlineTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
+    navMapOnlineTiles = L.tileLayer(OSM_TILE_URL, {
       minZoom: 2,
       maxZoom: 19,
     });
@@ -1352,9 +1355,9 @@
     });
 
     if (startOnline) {
-      navMapOnlineTiles.addTo(navMap);
       navMapOfflineTiles.addTo(navMap);
-      navMapOfflineTiles.bringToFront();
+      navMapOnlineTiles.addTo(navMap);
+      navMapOnlineTiles.bringToFront();
     } else {
       navMapOfflineTiles.addTo(navMap);
     }
@@ -1380,9 +1383,9 @@
           navMap.setMaxBounds(WORLD_BOUNDS);
         } catch (_) {}
 
-        if (navMapOnlineTiles && !navMap.hasLayer(navMapOnlineTiles)) navMapOnlineTiles.addTo(navMap);
         if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
-        if (navMapOfflineTiles) navMapOfflineTiles.bringToFront();
+        if (navMapOnlineTiles && !navMap.hasLayer(navMapOnlineTiles)) navMapOnlineTiles.addTo(navMap);
+        if (navMapOnlineTiles) navMapOnlineTiles.bringToFront();
       } else {
         if (navMapOnlineTiles && navMap.hasLayer(navMapOnlineTiles)) navMap.removeLayer(navMapOnlineTiles);
         if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
