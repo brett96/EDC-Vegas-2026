@@ -167,6 +167,10 @@
     pinHint: document.getElementById("pin-hint"),
     nameCancel: document.getElementById("name-cancel"),
     formName: document.getElementById("form-name"),
+    dlgDeletePin: document.getElementById("dlg-delete-pin"),
+    deletePinName: document.getElementById("delete-pin-name"),
+    deletePinCancel: document.getElementById("delete-pin-cancel"),
+    deletePinConfirm: document.getElementById("delete-pin-confirm"),
     dlgShare: document.getElementById("dlg-share"),
     inpShareUrl: document.getElementById("inp-share-url"),
     btnCopyLink: document.getElementById("btn-copy-link"),
@@ -838,7 +842,7 @@
       });
       li.querySelector('[data-a="del"]').addEventListener("click", (e) => {
         e.stopPropagation();
-        removePin(p.id);
+        openDeletePinConfirm(p.id);
       });
       li.addEventListener("click", () => {
         const mk = leafletMarkers.get(p.id);
@@ -854,6 +858,15 @@
     if (activeNavTarget && activeNavTarget.kind === "pin" && activeNavTarget.id === id) closeNav();
     syncMarkersFromPins(next);
     renderPinList();
+  }
+
+  function openDeletePinConfirm(id) {
+    if (!els.dlgDeletePin || !els.deletePinName) return;
+    const p = loadPins().find((x) => x.id === id);
+    if (!p) return;
+    els.deletePinName.textContent = p.name || "Meetup";
+    els.dlgDeletePin.dataset.pinId = id;
+    els.dlgDeletePin.showModal();
   }
 
   function openNavTo(target) {
@@ -1293,6 +1306,34 @@
     return base + "#" + SHARE_PREFIX + encodeSharePayload(loadPins());
   }
 
+  function normalizeMeetupName(name) {
+    return String(name || "Meetup")
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 80);
+  }
+
+  /** Same name + same coordinates (6 dp) counts as one meetup for import deduping. */
+  function meetupDedupeKey(p) {
+    const name = normalizeMeetupName(p.name);
+    const lat = Number(p.lat);
+    const lng = Number(p.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return name + "\0" + lat.toFixed(6) + "\0" + lng.toFixed(6);
+  }
+
+  function dedupePinsByMeetupIdentity(pins) {
+    const seen = new Set();
+    const out = [];
+    pins.forEach((p) => {
+      const k = meetupDedupeKey(p);
+      if (!k || seen.has(k)) return;
+      seen.add(k);
+      out.push(p);
+    });
+    return out;
+  }
+
   function importPinsFromPayload(payload, mode) {
     if (!payload || !payload.length) {
       toast("No pins found in that link");
@@ -1300,7 +1341,7 @@
     }
     const cleaned = payload.map((x, i) => ({
       id: x.id && String(x.id).length < 200 ? x.id : uid(),
-      name: String(x.name || "Meetup").slice(0, 80),
+      name: normalizeMeetupName(x.name || "Meetup"),
       lat: Number(x.lat),
       lng: Number(x.lng),
       color: x.color || PIN_COLORS[i % PIN_COLORS.length],
@@ -1312,16 +1353,30 @@
       return;
     }
     let next;
-    if (mode === "replace") next = cleaned;
-    else {
-      const existingIds = new Set(loadPins().map((p) => p.id));
+    if (mode === "replace") {
+      next = dedupePinsByMeetupIdentity(cleaned);
+    } else {
+      const existing = loadPins();
+      const sig = new Set();
+      existing.forEach((p) => {
+        const k = meetupDedupeKey(p);
+        if (k) sig.add(k);
+      });
+      const toAdd = [];
       cleaned.forEach((p) => {
+        const k = meetupDedupeKey(p);
+        if (!k || sig.has(k)) return;
+        sig.add(k);
+        toAdd.push(p);
+      });
+      const existingIds = new Set(existing.map((p) => p.id));
+      toAdd.forEach((p) => {
         while (existingIds.has(p.id)) {
           p.id = uid();
         }
         existingIds.add(p.id);
       });
-      next = loadPins().concat(cleaned);
+      next = existing.concat(toAdd);
     }
     savePins(next);
     syncMarkersFromPins(next);
@@ -1569,6 +1624,17 @@
       els.dlgName.close();
       addPinAt({ lat, lng }, name);
     });
+
+    if (els.deletePinCancel && els.dlgDeletePin) {
+      els.deletePinCancel.addEventListener("click", () => els.dlgDeletePin.close());
+    }
+    if (els.deletePinConfirm && els.dlgDeletePin) {
+      els.deletePinConfirm.addEventListener("click", () => {
+        const id = els.dlgDeletePin.dataset.pinId;
+        els.dlgDeletePin.close();
+        if (id) removePin(id);
+      });
+    }
 
     els.btnShare.addEventListener("click", () => {
       const pins = loadPins();

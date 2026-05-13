@@ -146,6 +146,20 @@
       </form>
     </dialog>
 
+    <dialog id="dlg-delete-pin" class="modal">
+      <div class="modal-body">
+        <h3>Delete meetup?</h3>
+        <p>
+          Remove <strong id="delete-pin-name"></strong> from this device? Friends will not lose pins they already
+          imported, but this cannot be undone here.
+        </p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="delete-pin-cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="delete-pin-confirm">Delete</button>
+        </div>
+      </div>
+    </dialog>
+
     <dialog id="dlg-share" class="modal">
       <div class="modal-body">
         <h3>Share meetup pack</h3>
