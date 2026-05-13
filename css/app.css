@@ -707,3 +707,50 @@ dialog.modal::backdrop {
 .leaflet-container {
   background: #0d0220;
 }
+
+/* Map pin / POI selection — Navigate opens compass overlay */
+.leaflet-popup-nav-shell .leaflet-popup-content-wrapper {
+  background: rgba(12, 6, 22, 0.96);
+  color: var(--text);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  padding: 0;
+}
+
+.leaflet-popup-nav-shell .leaflet-popup-content {
+  margin: 10px 12px 12px;
+  line-height: 1.35;
+}
+
+.leaflet-popup-nav-shell a.leaflet-popup-close-button {
+  color: var(--text);
+  padding: 8px 10px 0 0;
+  width: 28px;
+  height: 28px;
+  font-size: 1.25rem;
+}
+
+.leaflet-popup-nav-shell .leaflet-popup-tip {
+  background: rgba(12, 6, 22, 0.96);
+  border: 1px solid rgba(255, 45, 196, 0.25);
+  border-top: none;
+  border-left: none;
+}
+
+.map-nav-popup-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+.map-nav-popup-sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.map-nav-popup-btn {
+  width: 100%;
+  margin-top: 2px;
+}

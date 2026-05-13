@@ -29,7 +29,6 @@
           <div id="map" aria-label="Las Vegas Motor Speedway map"></div>
           <div class="map-float" aria-label="Quick actions">
             <button type="button" class="fab" id="btn-center-float" title="Center on me">⌖</button>
-            <button type="button" class="fab fab-accent" id="btn-pin-float" title="Drop pin here">+</button>
           </div>
         </div>
       </div>
@@ -40,7 +39,7 @@
         role="separator"
         tabindex="0"
         aria-orientation="horizontal"
-        aria-label="Drag up or down to resize the list panel"
+        aria-label="Drag down to enlarge the map and shrink the list; drag up for more list space"
       ></div>
 
       <section id="main-sheet" class="sheet" aria-label="Meetups and venue map">
@@ -59,14 +58,14 @@
           <div id="coord-strip" class="coord-strip">GPS: waiting for permission…</div>
           <div class="sheet-toolbar">
             <button type="button" class="btn btn-primary btn-sm" id="btn-center">📍 Center</button>
-            <button type="button" class="btn btn-sm" id="btn-pin">＋ Pin</button>
+            <button type="button" class="btn btn-sm" id="btn-pin" title="Drop a pin at the map center (GPS not used)">Pin at center</button>
             <button type="button" class="btn btn-sm" id="btn-share">↗ Share</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btn-import">⬇ Import</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btn-compass">🧭 Compass</button>
           </div>
           <ul id="pin-list" class="pin-list" aria-live="polite"></ul>
           <p class="empty-hint" id="empty-meetups">
-            No meetups yet. Tap <strong>＋ Pin</strong> at your spot, or <strong>⬇ Import</strong> a friend’s share link.
+            No meetups yet. <strong>Tap the map</strong> where you want to meet, or use <strong>Pin at center</strong>, or <strong>⬇ Import</strong> a friend’s share link.
           </p>
         </div>
 

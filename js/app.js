@@ -128,7 +128,6 @@
     btnImport: document.getElementById("btn-import"),
     btnCompass: document.getElementById("btn-compass"),
     btnCenterFloat: document.getElementById("btn-center-float"),
-    btnPinFloat: document.getElementById("btn-pin-float"),
     splitter: document.getElementById("split-splitter"),
     mapStack: document.getElementById("map-stack"),
     sheet: document.getElementById("main-sheet"),
@@ -345,6 +344,40 @@
     });
   }
 
+  /**
+   * Popup body: title, optional subtitle, Navigate → compass overlay.
+   */
+  function createNavigatePopupEl(title, subtitle, onNavigate) {
+    const wrap = L.DomUtil.create("div", "map-nav-popup");
+    const tit = L.DomUtil.create("div", "map-nav-popup-title", wrap);
+    tit.textContent = title;
+    if (subtitle) {
+      const sub = L.DomUtil.create("div", "map-nav-popup-sub", wrap);
+      sub.textContent = subtitle;
+    }
+    const btn = L.DomUtil.create("button", "btn btn-primary btn-sm map-nav-popup-btn", wrap);
+    btn.type = "button";
+    btn.textContent = "Navigate";
+    L.DomEvent.on(btn, "mousedown dblclick", L.DomEvent.stopPropagation);
+    L.DomEvent.on(btn, "click", (ev) => {
+      L.DomEvent.stop(ev);
+      if (map) map.closePopup();
+      onNavigate();
+    });
+    return wrap;
+  }
+
+  /** Fly map to a layer, then open its popup (list / “show on map” flows). */
+  function flyToAndOpenPopup(layer, minZoom) {
+    if (!map || !layer || typeof layer.getLatLng !== "function") return;
+    const z = Math.max(map.getZoom(), minZoom ?? 17);
+    const dur = 0.42;
+    map.flyTo(layer.getLatLng(), z, { duration: dur });
+    window.setTimeout(() => {
+      if (layer && typeof layer.openPopup === "function") layer.openPopup();
+    }, Math.round(dur * 1000) + 80);
+  }
+
   function initMap() {
     map = L.map(els.map, {
       maxBounds: WIDE_BOUNDS,
@@ -422,11 +455,11 @@
       li.querySelector('[data-a="map"]').addEventListener("click", (e) => {
         e.stopPropagation();
         const mk = poiMarkers.get(p.id);
-        if (mk) map.flyTo(mk.getLatLng(), Math.max(map.getZoom(), 17), { duration: 0.45 });
+        if (mk) flyToAndOpenPopup(mk, 17);
       });
       li.addEventListener("click", () => {
         const mk = poiMarkers.get(p.id);
-        if (mk) map.flyTo(mk.getLatLng(), Math.max(map.getZoom(), 16), { duration: 0.4 });
+        if (mk) flyToAndOpenPopup(mk, 16);
       });
       els.poiList.appendChild(li);
     });
@@ -447,9 +480,21 @@
         fillColor: col,
         fillOpacity: 0.92,
       });
+      const popupEl = createNavigatePopupEl(p.name, CATEGORY_LABELS[p.category] || p.category || "Venue", () =>
+        openNavForPoi(p.id)
+      );
+      m.bindPopup(popupEl, {
+        maxWidth: 300,
+        className: "leaflet-popup-nav-shell",
+        closeButton: true,
+        autoPan: true,
+        autoPanPadding: [20, 20],
+      });
       m.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
-        openNavForPoi(p.id);
+        const raw = e.originalEvent;
+        if (raw && typeof raw.detail === "number" && raw.detail > 1) return;
+        m.openPopup();
       });
       m.bindTooltip(p.name, { sticky: true, direction: "top", opacity: 0.95, className: "poi-tip" });
       m.addTo(poiLayer);
@@ -487,7 +532,20 @@
         icon: pinIcon(p.color || PIN_COLORS[0]),
         draggable: true,
       });
-      m.on("click", () => openNavForPin(p.id));
+      const pinPopupEl = createNavigatePopupEl(p.name, "Meetup pin", () => openNavForPin(p.id));
+      m.bindPopup(pinPopupEl, {
+        maxWidth: 300,
+        className: "leaflet-popup-nav-shell",
+        closeButton: true,
+        autoPan: true,
+        autoPanPadding: [20, 20],
+      });
+      m.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
+        const raw = e.originalEvent;
+        if (raw && typeof raw.detail === "number" && raw.detail > 1) return;
+        m.openPopup();
+      });
       m.on("dragend", () => {
         const ll = m.getLatLng();
         const list = loadPins();
@@ -537,7 +595,7 @@
       });
       li.addEventListener("click", () => {
         const mk = leafletMarkers.get(p.id);
-        if (mk) map.flyTo(mk.getLatLng(), Math.max(map.getZoom(), 16), { duration: 0.45 });
+        if (mk) flyToAndOpenPopup(mk, 16);
       });
       els.pinList.appendChild(li);
     });
@@ -552,6 +610,7 @@
   }
 
   function openNavTo(target) {
+    if (map) map.closePopup();
     activeNavTarget = target;
     els.navOverlay.dataset.open = "true";
     els.navOverlay.setAttribute("aria-hidden", "false");
@@ -838,7 +897,8 @@
     });
     sp.addEventListener("pointermove", (e) => {
       if (!drag) return;
-      const nh = drag.h0 + (e.clientY - drag.y0);
+      // Dragging down (clientY increases) shrinks the bottom sheet → more map.
+      const nh = drag.h0 - (e.clientY - drag.y0);
       els.sheet.style.height = clampPanelPx(nh) + "px";
       if (map) map.invalidateSize();
     });
@@ -856,7 +916,8 @@
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         const cur = els.sheet.offsetHeight;
         const step = e.shiftKey ? 40 : 12;
-        const next = clampPanelPx(cur + (e.key === "ArrowUp" ? -step : step));
+        // ArrowDown = more map (smaller sheet), ArrowUp = more list (larger sheet)
+        const next = clampPanelPx(cur + (e.key === "ArrowDown" ? -step : step));
         els.sheet.style.height = next + "px";
         localStorage.setItem(SPLIT_PX_KEY, String(next));
         if (map) map.invalidateSize();
@@ -879,24 +940,33 @@
     els.btnCenter.addEventListener("click", doCenter);
     if (els.btnCenterFloat) els.btnCenterFloat.addEventListener("click", doCenter);
 
-    const doPin = () => {
-      if (!map) return;
-      const ll =
-        lastPosition && Number.isFinite(lastPosition.coords.latitude)
-          ? { lat: lastPosition.coords.latitude, lng: lastPosition.coords.longitude }
-          : map.getCenter();
+    const openPinNameDialog = (lat, lng, hint) => {
       els.inpName.value = "";
-      els.dlgName.dataset.lat = String(ll.lat);
-      els.dlgName.dataset.lng = String(ll.lng);
-      els.pinHint.textContent =
-        lastPosition && Number.isFinite(lastPosition.coords.latitude)
-          ? "Saved at your current GPS fix (works without mobile data once the OS has a lock)."
-          : "GPS not locked yet — this pin uses the map center. Pan/zoom first, or tap Center on me and wait.";
+      els.dlgName.dataset.lat = String(lat);
+      els.dlgName.dataset.lng = String(lng);
+      els.pinHint.textContent = hint;
       els.dlgName.showModal();
       els.inpName.focus();
     };
-    els.btnPin.addEventListener("click", doPin);
-    if (els.btnPinFloat) els.btnPinFloat.addEventListener("click", doPin);
+
+    map.on("click", (e) => {
+      if (els.navOverlay && els.navOverlay.dataset.open === "true") return;
+      const raw = e.originalEvent;
+      if (raw && typeof raw.detail === "number" && raw.detail > 1) return;
+      const ll = e.latlng;
+      openPinNameDialog(ll.lat, ll.lng, "Saved at the spot you tapped on the map.");
+    });
+
+    const doPinAtCenter = () => {
+      if (!map) return;
+      const ll = map.getCenter();
+      openPinNameDialog(
+        ll.lat,
+        ll.lng,
+        "Placed at map center — pan first if needed, or tap the map to choose an exact spot."
+      );
+    };
+    els.btnPin.addEventListener("click", doPinAtCenter);
 
     els.nameCancel.addEventListener("click", () => els.dlgName.close());
 
@@ -967,13 +1037,16 @@
     els.navClose.addEventListener("click", () => closeNav());
     els.navMap.addEventListener("click", () => {
       if (!activeNavTarget) return;
-      if (activeNavTarget.kind === "pin") {
-        const mk = leafletMarkers.get(activeNavTarget.id);
-        if (mk) map.flyTo(mk.getLatLng(), 17, { duration: 0.5 });
-      } else {
-        map.flyTo([activeNavTarget.lat, activeNavTarget.lng], 18, { duration: 0.5 });
-      }
+      const kind = activeNavTarget.kind;
+      const id = activeNavTarget.id;
       closeNav();
+      if (kind === "pin") {
+        const mk = leafletMarkers.get(id);
+        if (mk) flyToAndOpenPopup(mk, 17);
+      } else {
+        const mk = poiMarkers.get(id);
+        if (mk) flyToAndOpenPopup(mk, 18);
+      }
     });
 
     wireSplitter();

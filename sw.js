@@ -1,5 +1,5 @@
 /* Offline shell — precache app shell + CARTO-derived bundled OSM tiles */
-const CACHE = "edc-vegas-2026-v10";
+const CACHE = "edc-vegas-2026-v12";
 
 const CORE_ASSETS = [
   "/",
