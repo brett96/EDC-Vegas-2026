@@ -126,8 +126,8 @@
     btnPin: document.getElementById("btn-pin"),
     btnShare: document.getElementById("btn-share"),
     btnImport: document.getElementById("btn-import"),
-    btnCompass: document.getElementById("btn-compass"),
     btnCenterFloat: document.getElementById("btn-center-float"),
+    compassToggleNav: document.getElementById("compass-toggle-nav"),
     splitter: document.getElementById("split-splitter"),
     mapStack: document.getElementById("map-stack"),
     sheet: document.getElementById("main-sheet"),
@@ -160,7 +160,7 @@
     panelMeetups: document.getElementById("panel-meetups"),
     panelVenue: document.getElementById("panel-venue"),
     poiSearch: document.getElementById("poi-search"),
-    poiCat: document.getElementById("poi-cat"),
+    catChips: document.getElementById("cat-chips"),
     poiList: document.getElementById("poi-list"),
     meetupsCount: document.getElementById("meetups-count"),
     venueCount: document.getElementById("venue-count"),
@@ -182,6 +182,12 @@
   let geoWatchId = null;
   let navInterval = null;
   let orientationHooked = false;
+  let compassEnabled = false;
+  const selectedCategories = new Set();
+  let navMap = null;
+  let navMapUserMk = null;
+  let navMapTargetMk = null;
+  let navMapLine = null;
 
   function uid() {
     return crypto.randomUUID ? crypto.randomUUID() : "p-" + Date.now() + "-" + Math.random().toString(16).slice(2);
@@ -405,24 +411,69 @@
     userMarker = L.marker(MAP_BOUNDS.getCenter(), { icon: userIcon() }).addTo(map);
   }
 
-  function populatePoiCategoryFilter() {
+  function renderCategoryChips() {
     const cats = [...new Set(allPois.map((p) => p.category))].sort();
-    els.poiCat.innerHTML = '<option value="">All categories</option>';
-    cats.forEach((c) => {
-      const opt = document.createElement("option");
-      opt.value = c;
-      opt.textContent = CATEGORY_LABELS[c] || c;
-      els.poiCat.appendChild(opt);
+    const container = els.catChips;
+    container.innerHTML = "";
+
+    const makeChip = (label, active, accentColor, onClick) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cat-chip";
+      btn.textContent = label;
+      btn.dataset.active = active ? "true" : "false";
+      if (active) {
+        if (accentColor) {
+          btn.style.borderColor = accentColor;
+          btn.style.background = accentColor + "28";
+        } else {
+          btn.style.borderColor = "rgba(255,45,196,0.65)";
+          btn.style.background = "rgba(255,45,196,0.2)";
+        }
+      }
+      btn.addEventListener("click", onClick);
+      return btn;
+    };
+
+    container.appendChild(
+      makeChip("All", selectedCategories.size === 0, null, () => {
+        selectedCategories.clear();
+        renderCategoryChips();
+        renderPoiList();
+      })
+    );
+
+    cats.forEach((cat) => {
+      container.appendChild(
+        makeChip(CATEGORY_LABELS[cat] || cat, selectedCategories.has(cat), CATEGORY_COLORS[cat] || "#888", () => {
+          if (selectedCategories.has(cat)) selectedCategories.delete(cat);
+          else selectedCategories.add(cat);
+          renderCategoryChips();
+          renderPoiList();
+        })
+      );
     });
   }
 
   function filteredPois() {
     const q = (els.poiSearch.value || "").trim().toLowerCase();
-    const cat = els.poiCat.value;
     return allPois.filter((p) => {
-      if (cat && p.category !== cat) return false;
+      if (selectedCategories.size > 0 && !selectedCategories.has(p.category)) return false;
       if (!q) return true;
       return p.name.toLowerCase().includes(q) || (CATEGORY_LABELS[p.category] || "").toLowerCase().includes(q);
+    });
+  }
+
+  function syncPoiMarkerVisibility() {
+    const visibleIds = new Set(filteredPois().map((p) => p.id));
+    allPois.forEach((p) => {
+      const mk = poiMarkers.get(p.id);
+      if (!mk) return;
+      if (visibleIds.has(p.id)) {
+        if (!poiLayer.hasLayer(mk)) mk.addTo(poiLayer);
+      } else {
+        if (poiLayer.hasLayer(mk)) poiLayer.removeLayer(mk);
+      }
     });
   }
 
@@ -463,6 +514,7 @@
       });
       els.poiList.appendChild(li);
     });
+    syncPoiMarkerVisibility();
   }
 
   function buildPoiMarkers() {
@@ -516,7 +568,7 @@
         v: row.v,
       }));
       buildPoiMarkers();
-      populatePoiCategoryFilter();
+      renderCategoryChips();
       renderPoiList();
     } catch (err) {
       console.error(err);
@@ -625,6 +677,10 @@
     updateNavReadout();
     if (navInterval) clearInterval(navInterval);
     navInterval = setInterval(updateNavReadout, 450);
+    requestAnimationFrame(() => {
+      initNavMap();
+      updateNavMiniMap();
+    });
   }
 
   function openNavForPin(id) {
@@ -680,7 +736,7 @@
     if (deviceH == null) {
       els.arrowWrap.style.transform = "rotate(0deg)";
       els.navHint.textContent =
-        "No compass yet — tap “Enable compass”, or walk a few steps so GPS can detect your direction of travel.";
+        “No compass — toggle Compass on below, or walk a few steps so GPS can detect your direction.”;
       return;
     }
     const rel = (brg - deviceH + 360) % 360;
@@ -707,7 +763,10 @@
       if (haversineM(a, b) > 1.5) lastHeadingFromMotion = bearingDeg(a, b);
     }
 
-    if (els.navOverlay.dataset.open === "true") updateNavReadout();
+    if (els.navOverlay.dataset.open === "true") {
+      updateNavReadout();
+      updateNavMiniMap();
+    }
   }
 
   function onGeoErr(err) {
@@ -727,10 +786,15 @@
     });
   }
 
-  function requestCompass() {
+  function syncCompassToggle(on) {
+    if (els.compassToggleNav) els.compassToggleNav.checked = on;
+  }
+
+  function enableCompass() {
     const ori = window.DeviceOrientationEvent;
     if (!ori) {
-      toast("Compass API not available — use GPS movement (walk a few steps) for direction.");
+      toast("Compass not available — GPS movement will estimate direction.");
+      syncCompassToggle(false);
       return;
     }
     const attach = () => {
@@ -738,17 +802,93 @@
         window.addEventListener("deviceorientation", onDeviceOrientation, true);
         orientationHooked = true;
       }
-      toast("Compass enabled");
-      els.btnCompass.textContent = "Compass on";
+      compassEnabled = true;
+      syncCompassToggle(true);
       updateNavReadout();
     };
-
     const maybePromise = ori.requestPermission && ori.requestPermission();
     if (maybePromise && typeof maybePromise.then === "function") {
-      maybePromise.then((st) => (st === "granted" ? attach() : toast("Compass permission denied"))).catch(() => toast("Could not enable compass"));
+      maybePromise
+        .then((st) => {
+          if (st === "granted") attach();
+          else { toast("Compass permission denied"); syncCompassToggle(false); }
+        })
+        .catch(() => { toast("Could not enable compass"); syncCompassToggle(false); });
     } else {
       attach();
     }
+  }
+
+  function disableCompass() {
+    if (orientationHooked) {
+      window.removeEventListener("deviceorientation", onDeviceOrientation, true);
+      orientationHooked = false;
+    }
+    compassHeading = null;
+    compassEnabled = false;
+    syncCompassToggle(false);
+    updateNavReadout();
+  }
+
+  function initNavMap() {
+    if (navMap) {
+      navMap.invalidateSize();
+      return;
+    }
+    navMap = L.map("nav-mini-map", {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: true,
+      touchZoom: true,
+      doubleClickZoom: false,
+      scrollWheelZoom: false,
+      keyboard: false,
+    });
+    L.tileLayer(BASEMAP_TILE_URL, {
+      minZoom: 12,
+      maxZoom: 19,
+      maxNativeZoom: 16,
+      minNativeZoom: 12,
+      tileSize: 256,
+      bounds: WIDE_BOUNDS,
+    }).addTo(navMap);
+    navMapUserMk = L.circleMarker(MAP_BOUNDS.getCenter(), {
+      radius: 6,
+      color: "#fff",
+      weight: 2,
+      fillColor: "#00f5ff",
+      fillOpacity: 1,
+    }).addTo(navMap);
+    navMapTargetMk = L.circleMarker(MAP_BOUNDS.getCenter(), {
+      radius: 8,
+      color: "#fff",
+      weight: 2,
+      fillColor: "#ff2dbe",
+      fillOpacity: 1,
+    }).addTo(navMap);
+    navMapLine = L.polyline([], {
+      color: "#ff2dbe",
+      weight: 2,
+      opacity: 0.75,
+      dashArray: "6 5",
+    }).addTo(navMap);
+  }
+
+  function updateNavMiniMap() {
+    if (!navMap || !activeNavTarget) return;
+    const targetLL = L.latLng(activeNavTarget.lat, activeNavTarget.lng);
+    navMapTargetMk.setLatLng(targetLL);
+    if (lastPosition) {
+      const here = L.latLng(lastPosition.coords.latitude, lastPosition.coords.longitude);
+      navMapUserMk.setLatLng(here);
+      navMapLine.setLatLngs([here, targetLL]);
+      navMap.fitBounds(L.latLngBounds([here, targetLL]).pad(0.35), { animate: false });
+    } else {
+      navMapUserMk.setLatLng(targetLL);
+      navMapLine.setLatLngs([]);
+      navMap.setView(targetLL, 17, { animate: false });
+    }
+    navMap.invalidateSize();
   }
 
   function addPinAt(latlng, name) {
@@ -931,7 +1071,6 @@
     els.tabVenue.addEventListener("click", () => setSheetTab("venue"));
 
     els.poiSearch.addEventListener("input", () => renderPoiList());
-    els.poiCat.addEventListener("change", () => renderPoiList());
 
     const doCenter = () => {
       if (userMarker) map.flyTo(userMarker.getLatLng(), Math.max(map.getZoom(), 16), { duration: 0.5 });
@@ -1032,7 +1171,12 @@
       els.dlgImport.close();
     });
 
-    els.btnCompass.addEventListener("click", () => requestCompass());
+    if (els.compassToggleNav) {
+      els.compassToggleNav.addEventListener("change", (e) => {
+        if (e.target.checked) enableCompass();
+        else disableCompass();
+      });
+    }
 
     els.navClose.addEventListener("click", () => closeNav());
     els.navMap.addEventListener("click", () => {

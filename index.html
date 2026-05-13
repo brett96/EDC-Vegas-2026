@@ -61,7 +61,6 @@
             <button type="button" class="btn btn-sm" id="btn-pin" title="Drop a pin at the map center (GPS not used)">Pin at center</button>
             <button type="button" class="btn btn-sm" id="btn-share">↗ Share</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btn-import">⬇ Import</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-compass">🧭 Compass</button>
           </div>
           <ul id="pin-list" class="pin-list" aria-live="polite"></ul>
           <p class="empty-hint" id="empty-meetups">
@@ -79,13 +78,13 @@
               autocomplete="off"
               enterkeyhint="search"
             />
-            <select id="poi-cat" class="poi-cat" aria-label="Filter by category"></select>
           </div>
+          <div id="cat-chips" class="cat-chips" role="group" aria-label="Filter by category"></div>
           <ul id="poi-list" class="pin-list poi-list" aria-live="polite"></ul>
         </div>
 
         <p class="map-attribution">
-          Basemap: bundled CARTO dark tiles · © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors, © CARTO · Venue pins approximate
+          Basemap: bundled CARTO dark tiles · © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors, © CARTO · Venue pins approximate · <a href="https://donate.stripe.com/7sYcN42Qq9Nl1zheOV2cg01" rel="noreferrer" target="_blank">Donate to the Developer</a>
         </p>
       </section>
     </div>
@@ -99,6 +98,11 @@
         <h2 id="nav-title">Meetup</h2>
         <p id="nav-sub">Walking toward saved pin</p>
       </div>
+      <div id="nav-mini-map" class="nav-mini-map"></div>
+      <div class="nav-stats">
+        <div id="nav-distance" class="nav-distance">—</div>
+        <div id="nav-bearing" class="nav-bearing">—</div>
+      </div>
       <div class="compass-stage">
         <div class="compass-ring">
           <span class="compass-n">N</span>
@@ -107,11 +111,16 @@
           </div>
         </div>
       </div>
-      <div class="nav-stats">
-        <div id="nav-distance" class="nav-distance">—</div>
-        <div id="nav-bearing" class="nav-bearing">—</div>
+      <div class="nav-compass-ctrl">
+        <label class="compass-toggle-label">
+          <input type="checkbox" id="compass-toggle-nav" role="switch" class="toggle-input" />
+          <span class="toggle-switch" aria-hidden="true">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </span>
+          <span class="compass-toggle-text">Compass</span>
+        </label>
+        <p id="nav-hint" class="nav-hint"></p>
       </div>
-      <p id="nav-hint" class="nav-hint"></p>
     </div>
 
     <dialog id="dlg-name" class="modal">
