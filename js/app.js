@@ -180,9 +180,12 @@
     btnSystemShare: document.getElementById("btn-system-share"),
     shareClose: document.getElementById("share-close"),
     dlgImport: document.getElementById("dlg-import"),
+    dlgImportReplace: document.getElementById("dlg-import-replace"),
     inpImport: document.getElementById("inp-import"),
     importCancel: document.getElementById("import-cancel"),
     formImport: document.getElementById("form-import"),
+    importReplaceCancel: document.getElementById("import-replace-cancel"),
+    importReplaceConfirm: document.getElementById("import-replace-confirm"),
     toast: document.getElementById("toast"),
     tabMeetups: document.getElementById("tab-meetups"),
     tabVenue: document.getElementById("tab-venue"),
@@ -226,6 +229,8 @@
   let motionUpdatedAtMs = 0;
   let prevGeoPosition = null;
   let navDebugEnabled = false;
+  /** Pins waiting for Replace-all confirmation (`dlg-import-replace`). */
+  let importReplacePendingPins = null;
   /** Coalesce compass DOM updates to one per animation frame. */
   let navReadoutRaf = null;
   let orientationHooked = false;
@@ -1886,15 +1891,36 @@
       const pins = extractSharePayload(els.inpImport.value);
       if (pins) {
         if (mode === "replace") {
-          const ok = window.confirm(
-            "Replace all will remove your current meetup locations on this device and replace them with locations from this import. Continue?"
-          );
-          if (!ok) return;
+          importReplacePendingPins = pins;
+          if (els.dlgImportReplace) els.dlgImportReplace.showModal();
+          return;
         }
         importPinsFromPayload(pins, mode);
       } else toast("Could not read pins from that text");
       els.dlgImport.close();
     });
+
+    if (els.importReplaceCancel && els.dlgImportReplace) {
+      els.importReplaceCancel.addEventListener("click", () => {
+        importReplacePendingPins = null;
+        els.dlgImportReplace.close();
+      });
+    }
+    if (els.importReplaceConfirm && els.dlgImportReplace) {
+      els.importReplaceConfirm.addEventListener("click", () => {
+        const pending = importReplacePendingPins;
+        importReplacePendingPins = null;
+        els.dlgImportReplace.close();
+        if (pending && pending.length) importPinsFromPayload(pending, "replace");
+        els.dlgImport.close();
+      });
+    }
+    if (els.dlgImport) {
+      els.dlgImport.addEventListener("close", () => {
+        if (els.dlgImportReplace && els.dlgImportReplace.open) els.dlgImportReplace.close();
+        importReplacePendingPins = null;
+      });
+    }
 
     if (els.compassToggleNav) {
       els.compassToggleNav.addEventListener("change", (e) => {

@@ -213,6 +213,20 @@
       </form>
     </dialog>
 
+    <dialog id="dlg-import-replace" class="modal">
+      <div class="modal-body">
+        <h3>Replace all meetups?</h3>
+        <p>
+          This will remove <strong>all</strong> meetup locations saved on this device and replace them with the meetup(s)
+          from this import. Friends who already imported your pins are not affected, but you cannot undo this here.
+        </p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="import-replace-cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="import-replace-confirm">Replace all</button>
+        </div>
+      </div>
+    </dialog>
+
     <div id="toast" class="toast" role="status"></div>
 
     <script src="./vendor/leaflet/leaflet.js"></script>
