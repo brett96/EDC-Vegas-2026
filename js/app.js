@@ -134,6 +134,7 @@
 
   const els = {
     map: document.getElementById("map"),
+    appTitle: document.getElementById("app-title"),
     offlineBadge: document.getElementById("offline-badge"),
     coordStrip: document.getElementById("coord-strip"),
     pinList: document.getElementById("pin-list"),
@@ -158,6 +159,7 @@
     navCompassLive: document.getElementById("nav-compass-live"),
     navCompassFallback: document.getElementById("nav-compass-fallback"),
     navCompassFallbackText: document.getElementById("nav-compass-fallback-text"),
+    navCompassRing: document.getElementById("nav-compass-ring"),
     arrowWrap: document.getElementById("arrow-wrap"),
     dlgName: document.getElementById("dlg-name"),
     inpName: document.getElementById("inp-name"),
@@ -422,6 +424,14 @@
       els.offlineBadge.textContent = "cache…";
       els.offlineBadge.dataset.state = "pending";
     }
+  }
+
+  function setOnlineOfflineTitle() {
+    const isOnline = typeof navigator !== "undefined" && navigator.onLine === true;
+    const suffix = isOnline ? " · Online" : " · Offline";
+    const baseDocTitle = "EDC Vegas 2026";
+    document.title = baseDocTitle + suffix;
+    if (els.appTitle) els.appTitle.textContent = "EDC VEGAS 2026" + (isOnline ? " · ONLINE" : " · OFFLINE");
   }
 
   function registerSw() {
@@ -943,9 +953,11 @@
       els.navCompassLive.hidden = false;
       els.navCompassLive.setAttribute("aria-hidden", "false");
       els.navCompassFallback.hidden = true;
+      if (els.navCompassRing) els.navCompassRing.style.transform = "rotate(" + (-liveH) + "deg)";
       return;
     }
 
+    if (els.navCompassRing) els.navCompassRing.style.transform = "rotate(0deg)";
     els.navCompassLive.hidden = true;
     els.navCompassLive.setAttribute("aria-hidden", "true");
     els.navCompassFallback.hidden = false;
@@ -958,6 +970,7 @@
       els.navDistance.textContent = "—";
       els.navBearing.textContent = "Waiting for GPS…";
       if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(0deg)";
+      if (els.navCompassRing) els.navCompassRing.style.transform = "rotate(0deg)";
       els.navHint.textContent = "Enable location and walk into an open area for a faster lock.";
       syncNavCompassPanel();
       return;
@@ -972,10 +985,14 @@
     const deviceH = navRealtimeHeading();
     if (deviceH == null) {
       if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(0deg)";
+      if (els.navCompassRing) els.navCompassRing.style.transform = "rotate(0deg)";
       els.navHint.textContent = "";
     } else {
-      const rel = (brg - deviceH + 360) % 360;
-      if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(" + rel + "deg)";
+      // Rotate the ring so "N" points to true North, and rotate the arrow by the
+      // absolute bearing to target. Net effect on screen: arrow points correctly
+      // relative to the device while the compass ring tracks North.
+      if (els.navCompassRing) els.navCompassRing.style.transform = "rotate(" + (-deviceH) + "deg)";
+      if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(" + brg + "deg)";
       els.navHint.textContent =
         "Hold your phone flat like a compass. Arrow follows your body as you turn — works without mobile data.";
     }
@@ -1604,6 +1621,9 @@
     initMap();
     registerSw();
     wireUi();
+    setOnlineOfflineTitle();
+    window.addEventListener("online", setOnlineOfflineTitle);
+    window.addEventListener("offline", setOnlineOfflineTitle);
 
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: asset("vendor/leaflet/images/marker-icon-2x.png"),
