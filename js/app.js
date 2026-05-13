@@ -152,11 +152,13 @@
     navOverlay: document.getElementById("nav-overlay"),
     navClose: document.getElementById("nav-close"),
     navMap: document.getElementById("nav-map"),
+    navDebugToggle: document.getElementById("nav-debug-toggle"),
     navRefreshLocation: document.getElementById("nav-refresh-location"),
     navTitle: document.getElementById("nav-title"),
     navSub: document.getElementById("nav-sub"),
     navDistance: document.getElementById("nav-distance"),
     navBearing: document.getElementById("nav-bearing"),
+    navDebugReadout: document.getElementById("nav-debug-readout"),
     navHint: document.getElementById("nav-hint"),
     navCompassLive: document.getElementById("nav-compass-live"),
     navCompassFallback: document.getElementById("nav-compass-fallback"),
@@ -223,6 +225,7 @@
   let motionSpeedMps = 0;
   let motionUpdatedAtMs = 0;
   let prevGeoPosition = null;
+  let navDebugEnabled = false;
   /** Coalesce compass DOM updates to one per animation frame. */
   let navReadoutRaf = null;
   let orientationHooked = false;
@@ -463,6 +466,48 @@
     // Limit dead-reckoning horizon so estimates stay close to real GPS fixes.
     const projectSec = Math.min(elapsedSec, 2.2);
     return offsetLatLngMeters(base, heading, speed * projectSec);
+  }
+
+  function setNavDebugEnabled(on) {
+    navDebugEnabled = !!on;
+    if (els.navDebugToggle) {
+      els.navDebugToggle.dataset.on = navDebugEnabled ? "true" : "false";
+      els.navDebugToggle.setAttribute("aria-pressed", navDebugEnabled ? "true" : "false");
+    }
+    if (els.navDebugReadout) els.navDebugReadout.hidden = !navDebugEnabled;
+  }
+
+  function updateNavDebugReadout(here, distMeters, brgDeg) {
+    if (!navDebugEnabled || !els.navDebugReadout) return;
+    if (els.navDebugReadout.hidden) els.navDebugReadout.hidden = false;
+    const fix = lastPosition;
+    const now = Date.now();
+    const fixAgeMs = fix && typeof fix.timestamp === "number" ? Math.max(0, now - fix.timestamp) : null;
+    const accuracy = fix && typeof fix.coords.accuracy === "number" ? Math.round(fix.coords.accuracy) : null;
+    const speed = fix && typeof fix.coords.speed === "number" && Number.isFinite(fix.coords.speed) ? fix.coords.speed : null;
+    const gpsHeading =
+      fix && typeof fix.coords.heading === "number" && Number.isFinite(fix.coords.heading) && fix.coords.heading >= 0
+        ? fix.coords.heading
+        : null;
+    const source =
+      speed != null && speed > 0.35 && gpsHeading != null
+        ? "gps_speed+heading"
+        : motionUpdatedAtMs && now - motionUpdatedAtMs <= 6000
+          ? "inferred_motion"
+          : "raw_fix";
+    const lines = [
+      "Debug Readout",
+      "fix age: " + (fixAgeMs == null ? "n/a" : fixAgeMs + " ms"),
+      "accuracy: " + (accuracy == null ? "n/a" : "±" + accuracy + " m"),
+      "gps speed: " + (speed == null ? "n/a" : speed.toFixed(2) + " m/s"),
+      "gps heading: " + (gpsHeading == null ? "n/a" : Math.round(gpsHeading) + " deg"),
+      "motion est: " + (motionSpeedMps > 0 ? motionSpeedMps.toFixed(2) + " m/s @ " + Math.round(motionHeadingDeg || 0) + " deg" : "n/a"),
+      "position source: " + source,
+      "estimated here: " + (here ? here.lat.toFixed(6) + ", " + here.lng.toFixed(6) : "n/a"),
+      "distance: " + (Number.isFinite(distMeters) ? Math.round(distMeters) + " m" : "n/a"),
+      "bearing: " + (Number.isFinite(brgDeg) ? Math.round(brgDeg) + " deg" : "n/a"),
+    ];
+    els.navDebugReadout.textContent = lines.join("\n");
   }
 
   function formatDist(m) {
@@ -971,6 +1016,7 @@
     }
     renderPinList();
     renderPoiList();
+    if (els.navDebugReadout) els.navDebugReadout.hidden = !navDebugEnabled;
     updateNavReadout();
     if (navInterval) clearInterval(navInterval);
     navInterval = setInterval(() => {
@@ -1019,6 +1065,7 @@
       history.back();
     }
     if (els.navRefreshLocation) els.navRefreshLocation.disabled = false;
+    if (els.navDebugReadout) els.navDebugReadout.hidden = true;
   }
 
   /**
@@ -1094,6 +1141,7 @@
       if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(0deg)";
       if (els.navCompassRing) els.navCompassRing.style.transform = "rotate(0deg)";
       els.navHint.textContent = "Enable location and walk into an open area for a faster lock.";
+      updateNavDebugReadout(null, NaN, NaN);
       syncNavCompassPanel();
       return;
     }
@@ -1102,6 +1150,7 @@
     const brg = bearingDeg(here, there);
     els.navDistance.textContent = formatDistNav(dist);
     els.navBearing.textContent = Math.round(brg) + "° · " + cardinal(brg) + " to target";
+    updateNavDebugReadout(here, dist, brg);
 
     const deviceH = navRealtimeHeading();
     if (deviceH == null) {
@@ -1156,6 +1205,7 @@
   function onGeoErr(err) {
     if (err && err.code === 1) geoPermissionDenied = true;
     els.coordStrip.textContent = "GPS error: " + (err && err.message ? err.message : "unknown");
+    updateNavDebugReadout(navEstimatedHere(), NaN, NaN);
     if (els.navOverlay.dataset.open === "true") syncNavCompassPanel();
   }
 
@@ -1834,8 +1884,15 @@
       const sub = e.submitter;
       const mode = sub && sub.value === "replace" ? "replace" : "merge";
       const pins = extractSharePayload(els.inpImport.value);
-      if (pins) importPinsFromPayload(pins, mode);
-      else toast("Could not read pins from that text");
+      if (pins) {
+        if (mode === "replace") {
+          const ok = window.confirm(
+            "Replace all will remove your current meetup locations on this device and replace them with locations from this import. Continue?"
+          );
+          if (!ok) return;
+        }
+        importPinsFromPayload(pins, mode);
+      } else toast("Could not read pins from that text");
       els.dlgImport.close();
     });
 
@@ -1847,6 +1904,13 @@
     }
 
     els.navClose.addEventListener("click", () => closeNav());
+    if (els.navDebugToggle) {
+      setNavDebugEnabled(false);
+      els.navDebugToggle.addEventListener("click", () => {
+        setNavDebugEnabled(!navDebugEnabled);
+        updateNavReadout();
+      });
+    }
     if (els.navRefreshLocation) els.navRefreshLocation.addEventListener("click", () => refreshNavLocationFromButton());
     els.navMap.addEventListener("click", () => {
       if (!activeNavTarget) return;
