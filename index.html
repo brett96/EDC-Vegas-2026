@@ -103,12 +103,19 @@
         <div id="nav-distance" class="nav-distance">—</div>
         <div id="nav-bearing" class="nav-bearing">—</div>
       </div>
-      <div class="compass-stage">
-        <div class="compass-ring">
-          <span class="compass-n">N</span>
-          <div id="arrow-wrap" class="arrow-wrap">
-            <div class="arrow" aria-hidden="true"></div>
+      <div id="nav-compass-panel" class="nav-compass-panel">
+        <div id="nav-compass-live" class="nav-compass-live" hidden aria-hidden="true">
+          <div class="compass-stage">
+            <div class="compass-ring">
+              <span class="compass-n">N</span>
+              <div id="arrow-wrap" class="arrow-wrap">
+                <div class="arrow" aria-hidden="true"></div>
+              </div>
+            </div>
           </div>
+        </div>
+        <div id="nav-compass-fallback" class="nav-compass-fallback" role="status">
+          <p id="nav-compass-fallback-text" class="nav-compass-fallback-text"></p>
         </div>
       </div>
       <div class="nav-compass-ctrl">

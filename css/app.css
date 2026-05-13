@@ -568,6 +568,32 @@ body {
   padding: 2px 0;
 }
 
+.nav-compass-panel {
+  flex-shrink: 0;
+}
+
+.nav-compass-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: min(40vw, 148px);
+  padding: 14px 16px;
+  margin: 2px 0;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 45, 196, 0.35);
+  background: rgba(10, 5, 20, 0.45);
+}
+
+.nav-compass-fallback-text {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.45;
+  max-width: 320px;
+}
+
 .compass-ring {
   width: min(40vw, 148px);
   height: min(40vw, 148px);

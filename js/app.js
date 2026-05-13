@@ -154,6 +154,9 @@
     navDistance: document.getElementById("nav-distance"),
     navBearing: document.getElementById("nav-bearing"),
     navHint: document.getElementById("nav-hint"),
+    navCompassLive: document.getElementById("nav-compass-live"),
+    navCompassFallback: document.getElementById("nav-compass-fallback"),
+    navCompassFallbackText: document.getElementById("nav-compass-fallback-text"),
     arrowWrap: document.getElementById("arrow-wrap"),
     dlgName: document.getElementById("dlg-name"),
     inpName: document.getElementById("inp-name"),
@@ -192,7 +195,6 @@
   const poiMarkers = new Map();
   let allPois = [];
   let lastPosition = null;
-  let lastHeadingFromMotion = null;
   let compassHeading = null;
   /** @type {{ kind: 'pin'|'poi', id: string, name: string, lat: number, lng: number, category?: string } | null} */
   let activeNavTarget = null;
@@ -200,6 +202,10 @@
   let navInterval = null;
   let orientationHooked = false;
   let compassEnabled = false;
+  /** User or OS blocked motion/orientation (e.g. iOS Safari prompt denied). */
+  let compassMotionPermissionDenied = false;
+  /** Geolocation watch reported permission denied. */
+  let geoPermissionDenied = false;
   const selectedCategories = new Set();
   let navMap = null;
   let navMapUserMk = null;
@@ -797,22 +803,76 @@
     renderPoiList();
   }
 
-  function headingForArrow() {
+  /**
+   * Heading that can drive the live compass UI: magnetometer / gyro compass
+   * (deviceorientation) or GPS-reported course while moving — not a heading
+   * inferred only from successive position fixes.
+   */
+  function navRealtimeHeading() {
     if (typeof compassHeading === "number" && !Number.isNaN(compassHeading)) return compassHeading;
     if (lastPosition && typeof lastPosition.coords.heading === "number" && !Number.isNaN(lastPosition.coords.heading)) {
       const sp = lastPosition.coords.speed;
       if (sp != null && sp > 0.4) return lastPosition.coords.heading;
     }
-    if (typeof lastHeadingFromMotion === "number") return lastHeadingFromMotion;
     return null;
   }
 
+  function buildNavCompassFallbackMessage(hasGps) {
+    if (!navigator.geolocation) {
+      return "This browser does not support geolocation, so distance and the directional compass cannot run here.";
+    }
+    if (geoPermissionDenied) {
+      return "Location is blocked for this site. Allow location in your browser or system settings, then reload the page if needed.";
+    }
+    if (!hasGps) {
+      return "Waiting for GPS. Allow location if prompted and step into an open area. For the live arrow you will also need motion/orientation (iPhone: turn Compass on below and allow Motion & Orientation when asked) or a GPS course while moving.";
+    }
+    if (compassMotionPermissionDenied) {
+      return "Motion and orientation access was denied. Reload this page, turn Compass on below, and tap Allow when prompted. If there is no prompt, check the browser or site settings for motion/sensor access.";
+    }
+    if (!window.DeviceOrientationEvent) {
+      return "This browser does not expose device orientation, so the compass ring stays hidden. Walk at a moderate pace in a straight line so GPS can report your course when your device supports it.";
+    }
+    if (typeof DeviceOrientationEvent.requestPermission === "function" && !compassEnabled) {
+      return "Turn Compass on below. When Safari asks, allow Motion & Orientation access so the magnetometer-based arrow can appear.";
+    }
+    if (compassEnabled && typeof compassHeading !== "number") {
+      return "Compass is on but no sensor heading yet. Hold the phone flat, away from speakers and metal, and turn slowly. If nothing appears, confirm motion permission is allowed for this site.";
+    }
+    if (!compassEnabled) {
+      return "Turn Compass on below (and allow motion if prompted), or walk several meters in a line so GPS can report your heading while you move.";
+    }
+    return "No live heading yet. Keep moving for a GPS course, or use the Compass switch for sensor-based direction.";
+  }
+
+  function syncNavCompassPanel() {
+    if (!els.navCompassLive || !els.navCompassFallback || !els.navCompassFallbackText) return;
+    if (els.navOverlay.dataset.open !== "true") return;
+
+    const hasGps = !!(lastPosition && Number.isFinite(lastPosition.coords.latitude));
+    const liveH = hasGps ? navRealtimeHeading() : null;
+
+    if (liveH != null) {
+      els.navCompassLive.hidden = false;
+      els.navCompassLive.setAttribute("aria-hidden", "false");
+      els.navCompassFallback.hidden = true;
+      return;
+    }
+
+    els.navCompassLive.hidden = true;
+    els.navCompassLive.setAttribute("aria-hidden", "true");
+    els.navCompassFallback.hidden = false;
+    els.navCompassFallbackText.textContent = buildNavCompassFallbackMessage(hasGps);
+  }
+
   function updateNavReadout() {
-    if (!activeNavTarget || !lastPosition) {
+    if (!activeNavTarget) return;
+    if (!lastPosition) {
       els.navDistance.textContent = "—";
       els.navBearing.textContent = "Waiting for GPS…";
-      els.arrowWrap.style.transform = "rotate(0deg)";
+      if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(0deg)";
       els.navHint.textContent = "Enable location and walk into an open area for a faster lock.";
+      syncNavCompassPanel();
       return;
     }
     const here = { lat: lastPosition.coords.latitude, lng: lastPosition.coords.longitude };
@@ -822,21 +882,21 @@
     els.navDistance.textContent = formatDist(dist);
     els.navBearing.textContent = Math.round(brg) + "° · " + cardinal(brg) + " to target";
 
-    const deviceH = headingForArrow();
+    const deviceH = navRealtimeHeading();
     if (deviceH == null) {
-      els.arrowWrap.style.transform = "rotate(0deg)";
+      if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(0deg)";
+      els.navHint.textContent = "";
+    } else {
+      const rel = (brg - deviceH + 360) % 360;
+      if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(" + rel + "deg)";
       els.navHint.textContent =
-        "No compass — toggle Compass on below, or walk a few steps so GPS can detect your direction.";
-      return;
+        "Hold your phone flat like a compass. Arrow follows your body as you turn — works without mobile data.";
     }
-    const rel = (brg - deviceH + 360) % 360;
-    els.arrowWrap.style.transform = "rotate(" + rel + "deg)";
-    els.navHint.textContent =
-      "Hold your phone flat like a compass. Arrow follows your body as you turn — works without mobile data.";
+    syncNavCompassPanel();
   }
 
   function onGeoSuccess(pos) {
-    const prev = lastPosition;
+    geoPermissionDenied = false;
     lastPosition = pos;
     const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
     userMarker.setLatLng(ll);
@@ -847,12 +907,6 @@
       pos.coords.longitude.toFixed(6) +
       (pos.coords.accuracy ? " · ±" + Math.round(pos.coords.accuracy) + " m" : "");
 
-    if (prev && Number.isFinite(prev.coords.latitude) && Number.isFinite(prev.coords.longitude)) {
-      const a = { lat: prev.coords.latitude, lng: prev.coords.longitude };
-      const b = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      if (haversineM(a, b) > 1.5) lastHeadingFromMotion = bearingDeg(a, b);
-    }
-
     if (els.navOverlay.dataset.open === "true") {
       updateNavReadout();
       updateNavMiniMap();
@@ -860,7 +914,9 @@
   }
 
   function onGeoErr(err) {
+    if (err && err.code === 1) geoPermissionDenied = true;
     els.coordStrip.textContent = "GPS error: " + (err && err.message ? err.message : "unknown");
+    if (els.navOverlay.dataset.open === "true") syncNavCompassPanel();
   }
 
   function startGeolocation() {
@@ -883,11 +939,12 @@
   function enableCompass() {
     const ori = window.DeviceOrientationEvent;
     if (!ori) {
-      toast("Compass not available — GPS movement will estimate direction.");
+      toast("Device orientation is not available here. Use GPS course while moving if your device reports it.");
       syncCompassToggle(false);
       return;
     }
     const attach = () => {
+      compassMotionPermissionDenied = false;
       if (!orientationHooked) {
         window.addEventListener("deviceorientation", onDeviceOrientation, true);
         orientationHooked = true;
@@ -901,9 +958,19 @@
       maybePromise
         .then((st) => {
           if (st === "granted") attach();
-          else { toast("Compass permission denied"); syncCompassToggle(false); }
+          else {
+            toast("Compass permission denied");
+            compassMotionPermissionDenied = true;
+            syncCompassToggle(false);
+            if (els.navOverlay.dataset.open === "true") syncNavCompassPanel();
+          }
         })
-        .catch(() => { toast("Could not enable compass"); syncCompassToggle(false); });
+        .catch(() => {
+          toast("Could not enable compass");
+          compassMotionPermissionDenied = true;
+          syncCompassToggle(false);
+          if (els.navOverlay.dataset.open === "true") syncNavCompassPanel();
+        });
     } else {
       attach();
     }
