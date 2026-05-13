@@ -736,7 +736,7 @@
     if (deviceH == null) {
       els.arrowWrap.style.transform = "rotate(0deg)";
       els.navHint.textContent =
-        “No compass — toggle Compass on below, or walk a few steps so GPS can detect your direction.”;
+        "No compass — toggle Compass on below, or walk a few steps so GPS can detect your direction.";
       return;
     }
     const rel = (brg - deviceH + 360) % 360;
