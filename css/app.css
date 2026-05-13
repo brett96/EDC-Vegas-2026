@@ -529,12 +529,30 @@ body {
   z-index: 900;
   display: none;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   background: radial-gradient(ellipse at center, #1a0a2e 0%, #050208 70%);
   padding: calc(12px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
 }
 
 .nav-overlay[data-open="true"] {
   display: flex;
+}
+
+.nav-overlay-header {
+  flex-shrink: 0;
+}
+
+.nav-overlay-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 4px;
 }
 
 .nav-top {
@@ -575,7 +593,8 @@ body {
 
 .nav-target {
   text-align: center;
-  margin-top: 8px;
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 
 .nav-target h2 {
@@ -668,6 +687,7 @@ body {
 .nav-stats {
   text-align: center;
   padding: 12px 0 4px;
+  flex-shrink: 0;
 }
 
 .nav-distance-row {
@@ -703,6 +723,10 @@ body {
   line-height: 1.42;
   white-space: pre-wrap;
   word-break: break-word;
+  flex-shrink: 0;
+  max-height: min(40vh, 320px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .nav-hint {
@@ -896,8 +920,11 @@ dialog.modal::backdrop {
 }
 
 .nav-mini-map {
-  flex: 1 1 auto;
-  min-height: 150px;
+  flex: 0 0 auto;
+  width: 100%;
+  height: clamp(148px, 32vh, 260px);
+  min-height: 148px;
+  max-height: 280px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -914,7 +941,7 @@ dialog.modal::backdrop {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 4px 0 0;
+  padding: 8px 0 6px;
 }
 
 .compass-toggle-label {

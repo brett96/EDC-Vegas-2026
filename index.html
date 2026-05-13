@@ -93,67 +93,71 @@
     </div>
 
     <div id="nav-overlay" class="nav-overlay" data-open="false" aria-hidden="true">
-      <div class="nav-top">
-        <button type="button" class="btn btn-ghost" id="nav-close">Close</button>
-        <div class="nav-top-actions">
-          <button type="button" class="btn" id="nav-map">Show on map</button>
-          <button
-            type="button"
-            class="btn btn-ghost nav-debug-toggle"
-            id="nav-debug-toggle"
-            title="Toggle navigation debug readout"
-            aria-label="Toggle navigation debug readout"
-            aria-pressed="false"
-          >
-            Debug
-          </button>
+      <div class="nav-overlay-header">
+        <div class="nav-top">
+          <button type="button" class="btn btn-ghost" id="nav-close">Close</button>
+          <div class="nav-top-actions">
+            <button type="button" class="btn" id="nav-map">Show on map</button>
+            <button
+              type="button"
+              class="btn btn-ghost nav-debug-toggle"
+              id="nav-debug-toggle"
+              title="Toggle navigation debug readout"
+              aria-label="Toggle navigation debug readout"
+              aria-pressed="false"
+            >
+              Debug
+            </button>
+          </div>
         </div>
       </div>
-      <div class="nav-target">
-        <h2 id="nav-title">Meetup</h2>
-        <p id="nav-sub">Walking toward saved pin</p>
-      </div>
-      <div id="nav-mini-map" class="nav-mini-map"></div>
-      <div class="nav-stats">
-        <div class="nav-distance-row">
-          <div id="nav-distance" class="nav-distance">—</div>
-          <button
-            type="button"
-            class="btn btn-ghost nav-refresh-location"
-            id="nav-refresh-location"
-            title="Refresh GPS — update distance and map pin"
-            aria-label="Refresh GPS location"
-          >
-            ↻
-          </button>
+      <div class="nav-overlay-scroll">
+        <div class="nav-target">
+          <h2 id="nav-title">Meetup</h2>
+          <p id="nav-sub">Walking toward saved pin</p>
         </div>
-        <div id="nav-bearing" class="nav-bearing">—</div>
-      </div>
-      <pre id="nav-debug-readout" class="nav-debug-readout" hidden></pre>
-      <div id="nav-compass-panel" class="nav-compass-panel">
-        <div id="nav-compass-live" class="nav-compass-live" hidden aria-hidden="true">
-          <div class="compass-stage">
-            <div id="nav-compass-ring" class="compass-ring">
-              <span class="compass-n">N</span>
-              <div id="arrow-wrap" class="arrow-wrap">
-                <div class="arrow" aria-hidden="true"></div>
+        <div id="nav-mini-map" class="nav-mini-map"></div>
+        <div class="nav-stats">
+          <div class="nav-distance-row">
+            <div id="nav-distance" class="nav-distance">—</div>
+            <button
+              type="button"
+              class="btn btn-ghost nav-refresh-location"
+              id="nav-refresh-location"
+              title="Refresh GPS — update distance and map pin"
+              aria-label="Refresh GPS location"
+            >
+              ↻
+            </button>
+          </div>
+          <div id="nav-bearing" class="nav-bearing">—</div>
+        </div>
+        <pre id="nav-debug-readout" class="nav-debug-readout" hidden></pre>
+        <div id="nav-compass-panel" class="nav-compass-panel">
+          <div id="nav-compass-live" class="nav-compass-live" hidden aria-hidden="true">
+            <div class="compass-stage">
+              <div id="nav-compass-ring" class="compass-ring">
+                <span class="compass-n">N</span>
+                <div id="arrow-wrap" class="arrow-wrap">
+                  <div class="arrow" aria-hidden="true"></div>
+                </div>
               </div>
             </div>
           </div>
+          <div id="nav-compass-fallback" class="nav-compass-fallback" role="status">
+            <p id="nav-compass-fallback-text" class="nav-compass-fallback-text"></p>
+          </div>
         </div>
-        <div id="nav-compass-fallback" class="nav-compass-fallback" role="status">
-          <p id="nav-compass-fallback-text" class="nav-compass-fallback-text"></p>
+        <div class="nav-compass-ctrl">
+          <label class="compass-toggle-label">
+            <input type="checkbox" id="compass-toggle-nav" role="switch" class="toggle-input" />
+            <span class="toggle-switch" aria-hidden="true">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </span>
+            <span class="compass-toggle-text">Compass</span>
+          </label>
+          <p id="nav-hint" class="nav-hint"></p>
         </div>
-      </div>
-      <div class="nav-compass-ctrl">
-        <label class="compass-toggle-label">
-          <input type="checkbox" id="compass-toggle-nav" role="switch" class="toggle-input" />
-          <span class="toggle-switch" aria-hidden="true">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          </span>
-          <span class="compass-toggle-text">Compass</span>
-        </label>
-        <p id="nav-hint" class="nav-hint"></p>
       </div>
     </div>
 
