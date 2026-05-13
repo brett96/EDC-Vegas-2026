@@ -217,6 +217,11 @@
   let navMapUserMk = null;
   let navMapTargetMk = null;
   let navMapLine = null;
+  /** @type {import("leaflet").TileLayer | null} */
+  let navMapOfflineTiles = null;
+  /** @type {import("leaflet").TileLayer | null} */
+  let navMapOnlineTiles = null;
+  let navMapOnlineMode = false;
 
   function uid() {
     return crypto.randomUUID ? crypto.randomUUID() : "p-" + Date.now() + "-" + Math.random().toString(16).slice(2);
@@ -1068,6 +1073,10 @@
       navMap.invalidateSize();
       return;
     }
+    const WORLD_BOUNDS = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
+    const startOnline = typeof navigator !== "undefined" && navigator.onLine === true;
+    navMapOnlineMode = startOnline;
+
     navMap = L.map("nav-mini-map", {
       zoomControl: false,
       attributionControl: false,
@@ -1076,15 +1085,73 @@
       doubleClickZoom: false,
       scrollWheelZoom: false,
       keyboard: false,
+      maxBounds: startOnline ? WORLD_BOUNDS : WIDE_BOUNDS,
+      maxBoundsViscosity: startOnline ? 0 : 1.0,
+      minZoom: startOnline ? 2 : 12,
+      maxZoom: 19,
     });
-    L.tileLayer(BASEMAP_TILE_URL, {
+
+    navMapOnlineTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      subdomains: "abcd",
+      minZoom: 2,
+      maxZoom: 19,
+    });
+
+    navMapOfflineTiles = L.tileLayer(BASEMAP_TILE_URL, {
       minZoom: 12,
       maxZoom: 19,
       maxNativeZoom: 16,
       minNativeZoom: 12,
       tileSize: 256,
       bounds: WIDE_BOUNDS,
-    }).addTo(navMap);
+    });
+
+    if (startOnline) {
+      navMapOnlineTiles.addTo(navMap);
+      navMapOfflineTiles.addTo(navMap);
+      navMapOfflineTiles.bringToFront();
+    } else {
+      navMapOfflineTiles.addTo(navMap);
+    }
+
+    const lockToOfflineBounds = () => {
+      if (!navMap) return;
+      if (navMapOnlineMode) return;
+      try {
+        navMap.panInsideBounds(WIDE_BOUNDS, { animate: false });
+      } catch (_) {}
+    };
+
+    navMap.on("moveend", lockToOfflineBounds);
+
+    const applyConnectivityMode = (isOnline) => {
+      if (!navMap) return;
+      navMapOnlineMode = !!isOnline;
+
+      if (navMapOnlineMode) {
+        navMap.options.maxBoundsViscosity = 0;
+        navMap.setMinZoom(2);
+        try {
+          navMap.setMaxBounds(WORLD_BOUNDS);
+        } catch (_) {}
+
+        if (navMapOnlineTiles && !navMap.hasLayer(navMapOnlineTiles)) navMapOnlineTiles.addTo(navMap);
+        if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
+        if (navMapOfflineTiles) navMapOfflineTiles.bringToFront();
+      } else {
+        if (navMapOnlineTiles && navMap.hasLayer(navMapOnlineTiles)) navMap.removeLayer(navMapOnlineTiles);
+        if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
+
+        navMap.options.maxBoundsViscosity = 1.0;
+        navMap.setMinZoom(12);
+        navMap.setMaxBounds(WIDE_BOUNDS);
+        lockToOfflineBounds();
+      }
+    };
+
+    window.addEventListener("online", () => applyConnectivityMode(true));
+    window.addEventListener("offline", () => applyConnectivityMode(false));
+
     navMapUserMk = L.circleMarker(MAP_BOUNDS.getCenter(), {
       radius: 6,
       color: "#fff",
