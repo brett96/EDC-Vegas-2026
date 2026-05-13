@@ -223,9 +223,6 @@
   let geoWatchId = null;
   /** We pushed a history entry when opening nav so the device back button closes the overlay. */
   let navHistoryPushed = false;
-  /** While nav overlay is open, request a fresh GPS fix on this interval (ms). */
-  const NAV_GEO_POLL_MS = 2000;
-  let navGeoPollInterval = null;
   let navInterval = null;
   /** Throttle expensive minimap refits so GPS callbacks stay snappy. */
   let lastNavMiniMapFitAt = 0;
@@ -508,8 +505,8 @@
           : "raw_fix";
     const lines = [
       "Debug Readout",
-      "fix age: " + (fixAgeMs == null ? "n/a" : fixAgeMs + " ms (expect ≤ ~" + NAV_GEO_POLL_MS + " ms while navigating)"),
-      "gps refresh while nav open: every " + NAV_GEO_POLL_MS + " ms",
+      "fix age: " + (fixAgeMs == null ? "n/a" : fixAgeMs + " ms"),
+      "location: watchPosition only (↻ = one-shot refresh; avoids repeat prompts on some browsers)",
       "accuracy: " + (accuracy == null ? "n/a" : "±" + accuracy + " m"),
       "gps speed: " + (speed == null ? "n/a" : speed.toFixed(2) + " m/s"),
       "gps heading: " + (gpsHeading == null ? "n/a" : Math.round(gpsHeading) + " deg"),
@@ -998,20 +995,6 @@
     els.dlgDeletePin.showModal();
   }
 
-  /** Periodic high-accuracy fix while navigation view is open (distance + map pin). */
-  function pollNavLocationWhileOpen() {
-    if (els.navOverlay.dataset.open !== "true") return;
-    if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== "function") return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (els.navOverlay.dataset.open !== "true") return;
-        onGeoSuccess(pos);
-      },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-    );
-  }
-
   function openNavTo(target) {
     if (map) map.closePopup();
     const wasClosed = els.navOverlay.dataset.open !== "true";
@@ -1049,13 +1032,6 @@
       updateNavReadout();
       updateNavMiniMap();
     }, 90);
-    if (navGeoPollInterval) {
-      clearInterval(navGeoPollInterval);
-      navGeoPollInterval = null;
-    }
-    if (navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === "function") {
-      navGeoPollInterval = setInterval(pollNavLocationWhileOpen, NAV_GEO_POLL_MS);
-    }
     requestAnimationFrame(() => {
       initNavMap();
       updateNavMiniMap();
@@ -1083,10 +1059,6 @@
     if (navInterval) {
       clearInterval(navInterval);
       navInterval = null;
-    }
-    if (navGeoPollInterval) {
-      clearInterval(navGeoPollInterval);
-      navGeoPollInterval = null;
     }
     if (navReadoutRaf != null) {
       cancelAnimationFrame(navReadoutRaf);
