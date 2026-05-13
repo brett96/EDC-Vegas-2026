@@ -140,15 +140,17 @@
             <select id="schedule-day" class="poi-cat" aria-label="Filter by day"></select>
             <select id="schedule-stage" class="poi-cat" aria-label="Filter by stage"></select>
             <select id="schedule-genre" class="poi-cat" aria-label="Filter by genre"></select>
-            <div class="schedule-share-actions" role="group" aria-label="Share or import saved schedule">
-              <button type="button" class="btn btn-sm" id="btn-schedule-share">↗ Share</button>
-              <button type="button" class="btn btn-ghost btn-sm" id="btn-schedule-import">⬇ Import</button>
-            </div>
           </div>
           <p id="schedule-conflict-summary" class="schedule-conflict-summary" hidden></p>
           <div id="schedule-scroll" class="schedule-scroll">
             <section class="schedule-section">
-              <h3 class="schedule-section-title">My itinerary</h3>
+              <div class="schedule-section-head">
+                <h3 class="schedule-section-title">My itinerary</h3>
+                <div class="schedule-share-actions" role="group" aria-label="Share or import saved schedule">
+                  <button type="button" class="btn btn-sm" id="btn-schedule-share">↗ Share</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="btn-schedule-import">⬇ Import</button>
+                </div>
+              </div>
               <ul id="schedule-itinerary-list" class="schedule-list" aria-live="polite"></ul>
             </section>
             <section class="schedule-section">

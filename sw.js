@@ -1,5 +1,5 @@
 /* Offline shell — precache resolves from this script's URL (root or /edc/ etc.) */
-const CACHE = "edc-vegas-2026-v47";
+const CACHE = "edc-vegas-2026-v48";
 
 function scopeBase() {
   const s = self.registration && self.registration.scope ? self.registration.scope : self.location.href;

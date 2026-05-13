@@ -690,7 +690,6 @@ html[data-site-theme="light"] .schedule-walk-tooltip {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  padding-left: 4px;
 }
 
 .schedule-share-actions .btn {
@@ -723,12 +722,27 @@ html[data-site-theme="light"] .schedule-walk-tooltip {
   margin-bottom: 10px;
 }
 
+.schedule-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 2px 4px 8px;
+}
+
 .schedule-section-title {
   margin: 2px 4px 8px;
   font-size: 0.78rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.schedule-section-head .schedule-section-title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .schedule-list {
