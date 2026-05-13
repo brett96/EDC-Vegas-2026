@@ -5,14 +5,12 @@
   const SHARE_PREFIX = "share=";
   const POI_DATA_URL = "/data/festival-pois.json";
   const BASEMAP_TILE_URL = "/tiles/{z}/{x}/{y}.png";
-  const FESTIVAL_MAP_URL = "/assets/edclv_2026_festival_map.jpg";
   const SPLIT_PX_KEY = "edc2026_split_px";
 
   /**
-   * LVMS infield (landscape). Tweak in 5–10 m increments after a field check.
-   * The festival map JPG is portrait, so overlaying it on the real (landscape)
-   * infield stretches the artwork horizontally — that is intentional so the
-   * stylized oval roughly matches the actual tri-oval shape on the basemap.
+   * LVMS infield rectangle (landscape). Used to convert each POI's normalized
+   * (u, v) layout coordinate into latitude/longitude over the real venue.
+   * Tweak in 5–10 m increments after a field check.
    */
   const INFIELD_BOUNDS = L.latLngBounds(
     [36.2685, -115.0175], // SW
@@ -144,6 +142,9 @@
     poiSearch: document.getElementById("poi-search"),
     poiCat: document.getElementById("poi-cat"),
     poiList: document.getElementById("poi-list"),
+    meetupsCount: document.getElementById("meetups-count"),
+    venueCount: document.getElementById("venue-count"),
+    emptyMeetups: document.getElementById("empty-meetups"),
   };
 
   let map;
@@ -311,12 +312,6 @@
         '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · offline',
     }).addTo(map);
 
-    L.imageOverlay(FESTIVAL_MAP_URL, MAP_BOUNDS, {
-      opacity: 0.62,
-      interactive: false,
-      className: "festival-map-overlay",
-    }).addTo(map);
-
     map.fitBounds(MAP_BOUNDS.pad(0.08));
 
     poiLayer = L.layerGroup().addTo(map);
@@ -348,6 +343,7 @@
   function renderPoiList() {
     const list = filteredPois();
     els.poiList.innerHTML = "";
+    if (els.venueCount) els.venueCount.textContent = String(list.length);
     list.forEach((p) => {
       const li = document.createElement("li");
       li.className = "pin-item poi-item";
@@ -459,6 +455,8 @@
   function renderPinList() {
     const pins = loadPins();
     els.pinList.innerHTML = "";
+    if (els.meetupsCount) els.meetupsCount.textContent = String(pins.length);
+    if (els.emptyMeetups) els.emptyMeetups.hidden = pins.length > 0;
     pins.forEach((p) => {
       const li = document.createElement("li");
       li.className = "pin-item";

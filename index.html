@@ -44,36 +44,51 @@
       ></div>
 
       <section id="main-sheet" class="sheet" aria-label="Meetups and venue map">
-      <div class="sheet-tabs" role="tablist" aria-label="List and tools">
-        <button type="button" class="sheet-tab" role="tab" id="tab-meetups" aria-controls="panel-meetups" aria-selected="true">
-          Meetups
-        </button>
-        <button type="button" class="sheet-tab" role="tab" id="tab-venue" aria-controls="panel-venue" aria-selected="false">
-          Venue map
-        </button>
-      </div>
-      <div id="panel-meetups" class="sheet-panel" role="tabpanel" aria-labelledby="tab-meetups">
-        <div class="sheet-toolbar">
-          <button type="button" class="btn btn-primary" id="btn-center">Center on me</button>
-          <button type="button" class="btn" id="btn-pin">Drop pin here</button>
-          <button type="button" class="btn" id="btn-share">Share pins</button>
-          <button type="button" class="btn btn-ghost" id="btn-import">Import</button>
-          <button type="button" class="btn btn-ghost" id="btn-compass">Enable compass</button>
+        <nav class="sheet-tabs" role="tablist" aria-label="List and tools">
+          <button type="button" class="sheet-tab" role="tab" id="tab-meetups" aria-controls="panel-meetups" aria-selected="true">
+            <span class="sheet-tab-label">Meetups</span>
+            <span class="sheet-tab-count" id="meetups-count">0</span>
+          </button>
+          <button type="button" class="sheet-tab" role="tab" id="tab-venue" aria-controls="panel-venue" aria-selected="false">
+            <span class="sheet-tab-label">Venue map</span>
+            <span class="sheet-tab-count" id="venue-count">—</span>
+          </button>
+        </nav>
+
+        <div id="panel-meetups" class="sheet-panel" role="tabpanel" aria-labelledby="tab-meetups">
+          <div id="coord-strip" class="coord-strip">GPS: waiting for permission…</div>
+          <div class="sheet-toolbar">
+            <button type="button" class="btn btn-primary btn-sm" id="btn-center">📍 Center</button>
+            <button type="button" class="btn btn-sm" id="btn-pin">＋ Pin</button>
+            <button type="button" class="btn btn-sm" id="btn-share">↗ Share</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-import">⬇ Import</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-compass">🧭 Compass</button>
+          </div>
+          <ul id="pin-list" class="pin-list" aria-live="polite"></ul>
+          <p class="empty-hint" id="empty-meetups">
+            No meetups yet. Tap <strong>＋ Pin</strong> at your spot, or <strong>⬇ Import</strong> a friend’s share link.
+          </p>
         </div>
-        <div id="coord-strip" class="coord-strip">GPS: waiting for permission…</div>
-        <ul id="pin-list" class="pin-list" aria-live="polite"></ul>
-      </div>
-      <div id="panel-venue" class="sheet-panel" role="tabpanel" aria-labelledby="tab-venue" hidden>
-        <div class="venue-toolbar">
-          <input type="search" id="poi-search" class="poi-search" placeholder="Search stages, restrooms, rides…" autocomplete="off" />
-          <select id="poi-cat" class="poi-cat" aria-label="Filter by category"></select>
+
+        <div id="panel-venue" class="sheet-panel" role="tabpanel" aria-labelledby="tab-venue" hidden>
+          <div class="venue-toolbar">
+            <input
+              type="search"
+              id="poi-search"
+              class="poi-search"
+              placeholder="Search stages, restrooms, rides…"
+              autocomplete="off"
+              enterkeyhint="search"
+            />
+            <select id="poi-cat" class="poi-cat" aria-label="Filter by category"></select>
+          </div>
+          <ul id="poi-list" class="pin-list poi-list" aria-live="polite"></ul>
         </div>
-        <ul id="poi-list" class="pin-list poi-list" aria-live="polite"></ul>
-      </div>
-      <p class="map-attribution">
-        Basemap: bundled CARTO dark tiles (© OpenStreetMap contributors, © CARTO) · Festival art overlay (approximate alignment) · Venue pins from festival map layout
-      </p>
-    </section>
+
+        <p class="map-attribution">
+          Basemap: bundled CARTO dark tiles · © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors, © CARTO · Venue pins approximate
+        </p>
+      </section>
     </div>
 
     <div id="nav-overlay" class="nav-overlay" data-open="false" aria-hidden="true">
