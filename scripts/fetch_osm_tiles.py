@@ -73,7 +73,7 @@ def main() -> None:
         xr, yr = bbox_tile_ranges(z, s, w, n, e)
         for x in xr:
             for y in yr:
-                rel = f"/tiles/{z}/{x}/{y}.png"
+                rel = f"tiles/{z}/{x}/{y}.png"
                 urls.append(rel)
                 path = os.path.join(TILES_DIR, str(z), str(x))
                 os.makedirs(path, exist_ok=True)

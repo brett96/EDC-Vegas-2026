@@ -3,9 +3,23 @@
 
   const STORAGE_KEY = "edc2026_pins_v1";
   const SHARE_PREFIX = "share=";
-  const POI_DATA_URL = "/data/festival-pois.json";
-  const BASEMAP_TILE_URL = "/tiles/{z}/{x}/{y}.png";
   const SPLIT_PX_KEY = "edc2026_split_px";
+
+  /** Directory URL of the app (works at site root or under a path like /edc/). */
+  function getAssetBaseUrl() {
+    const el = document.querySelector('script[src*="app.js"]');
+    if (!el || !el.src) return new URL("./", window.location.href).href;
+    return new URL("../", el.src).href;
+  }
+  const ASSET_BASE_URL = getAssetBaseUrl();
+
+  function asset(relPath) {
+    const p = String(relPath || "").replace(/^\//, "");
+    return new URL(p, ASSET_BASE_URL).href;
+  }
+
+  const POI_DATA_URL = asset("data/festival-pois.json");
+  const BASEMAP_TILE_URL = asset("tiles/{z}/{x}/{y}.png");
 
   /**
    * LVMS infield rectangle (landscape). Used to convert each POI's normalized
@@ -171,6 +185,8 @@
   let userMarker;
   let pinsLayer;
   let poiLayer;
+  let stageFillLayer;
+  let stageLabelLayer;
   const leafletMarkers = new Map();
   const poiMarkers = new Map();
   let allPois = [];
@@ -233,6 +249,73 @@
     const lat = south + ny * (north - south);
     const lng = west + nx * (east - west);
     return L.latLng(lat, lng);
+  }
+
+  /**
+   * Approximate stage / major zones in festival-map (u,v). Translucent overlays only.
+   * box = [minU, minV, maxU, maxV] in artwork space (0–1).
+   */
+  const STAGE_UV_ZONES = [
+    { name: "kineticFIELD", fill: "#ff2dbe", box: [0.38, 0.02, 0.62, 0.24] },
+    { name: "quantumVALLEY", fill: "#c86bff", box: [0.56, 0.18, 0.80, 0.34] },
+    { name: "neonGARDEN", fill: "#39ff14", box: [0.56, 0.36, 0.82, 0.58] },
+    { name: "circuitGROUNDS", fill: "#ff6bc4", box: [0.52, 0.66, 0.80, 0.94] },
+    { name: "bassPOD", fill: "#00f5ff", box: [0.38, 0.68, 0.62, 0.88] },
+    { name: "wasteLAND", fill: "#ff9e40", box: [0.06, 0.62, 0.34, 0.88] },
+    { name: "cosmicMEADOW", fill: "#6eb5ff", box: [0.02, 0.34, 0.28, 0.56] },
+    { name: "stereoBLOOM", fill: "#ffd400", box: [0.22, 0.22, 0.42, 0.40] },
+    { name: "bionicJUNGLE", fill: "#7dff9a", box: [0.06, 0.08, 0.30, 0.30] },
+    { name: "Downtown EDC", fill: "#9a8ab8", box: [0.36, 0.46, 0.56, 0.64] },
+    { name: "Rainbow Bazaar", fill: "#dda0dd", box: [0.38, 0.36, 0.56, 0.48] },
+    { name: "Camp EDC", fill: "#88aaff", box: [0.02, 0.48, 0.18, 0.70] },
+  ];
+
+  function uvBoxToRing(box) {
+    const u1 = box[0];
+    const v1 = box[1];
+    const u2 = box[2];
+    const v2 = box[3];
+    return [
+      uvToLatLng(MAP_BOUNDS, u1, v1),
+      uvToLatLng(MAP_BOUNDS, u2, v1),
+      uvToLatLng(MAP_BOUNDS, u2, v2),
+      uvToLatLng(MAP_BOUNDS, u1, v2),
+    ];
+  }
+
+  function stageLabelIcon(name) {
+    const safe = String(name).replace(/</g, "");
+    return L.divIcon({
+      className: "edc-stage-label-wrap",
+      html: '<span class="edc-stage-label">' + safe + "</span>",
+      iconSize: [160, 22],
+      iconAnchor: [80, 11],
+    });
+  }
+
+  function buildStageOverlays() {
+    if (!map || !stageFillLayer || !stageLabelLayer) return;
+    stageFillLayer.clearLayers();
+    stageLabelLayer.clearLayers();
+    STAGE_UV_ZONES.forEach((z) => {
+      const ring = uvBoxToRing(z.box);
+      const cx = (z.box[0] + z.box[2]) / 2;
+      const cy = (z.box[1] + z.box[3]) / 2;
+      L.polygon(ring, {
+        stroke: true,
+        color: z.fill,
+        weight: 1,
+        opacity: 0.28,
+        fillColor: z.fill,
+        fillOpacity: 0.1,
+        interactive: false,
+      }).addTo(stageFillLayer);
+      L.marker(uvToLatLng(MAP_BOUNDS, cx, cy), {
+        icon: stageLabelIcon(z.name),
+        interactive: false,
+        keyboard: false,
+      }).addTo(stageLabelLayer);
+    });
   }
 
   function onDeviceOrientation(e) {
@@ -317,8 +400,10 @@
       setOfflineBadge("basic");
       return;
     }
+    const swUrl = asset("sw.js");
+    const swScope = ASSET_BASE_URL;
     navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
+      .register(swUrl, { scope: swScope })
       .then((reg) => {
         if (reg.installing) {
           reg.installing.addEventListener("statechange", () => {
@@ -405,6 +490,10 @@
     }).addTo(map);
 
     map.fitBounds(MAP_BOUNDS.pad(0.08));
+
+    stageFillLayer = L.layerGroup().addTo(map);
+    stageLabelLayer = L.layerGroup().addTo(map);
+    buildStageOverlays();
 
     poiLayer = L.layerGroup().addTo(map);
     pinsLayer = L.layerGroup().addTo(map);
@@ -940,10 +1029,24 @@
     return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
+  function shareUrlBase() {
+    const u = new URL(location.href);
+    u.hash = "";
+    u.search = "";
+    let path = u.pathname;
+    if (!path.endsWith("/")) {
+      const last = path.split("/").pop() || "";
+      if (last.includes(".")) path = path.slice(0, path.lastIndexOf("/") + 1) || "/";
+    }
+    if (!path.endsWith("/")) path += "/";
+    u.pathname = path;
+    return u.href;
+  }
+
   function buildShareUrl() {
     const base =
       location.origin && location.origin !== "null"
-        ? location.origin + location.pathname
+        ? shareUrlBase()
         : location.pathname.split("/").pop() === "index.html"
           ? location.pathname
           : location.pathname.replace(/\/?$/, "/index.html");
@@ -1204,9 +1307,9 @@
     wireUi();
 
     L.Icon.Default.mergeOptions({
-      iconRetinaUrl: "/vendor/leaflet/images/marker-icon-2x.png",
-      iconUrl: "/vendor/leaflet/images/marker-icon.png",
-      shadowUrl: "/vendor/leaflet/images/marker-shadow.png",
+      iconRetinaUrl: asset("vendor/leaflet/images/marker-icon-2x.png"),
+      iconUrl: asset("vendor/leaflet/images/marker-icon.png"),
+      shadowUrl: asset("vendor/leaflet/images/marker-shadow.png"),
     });
 
     const pins = loadPins();

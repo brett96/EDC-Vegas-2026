@@ -1,29 +1,38 @@
-/* Offline shell — precache app shell + CARTO-derived bundled OSM tiles */
-const CACHE = "edc-vegas-2026-v12";
+/* Offline shell — precache resolves from this script's URL (root or /edc/ etc.) */
+const CACHE = "edc-vegas-2026-v13";
 
-const CORE_ASSETS = [
-  "/",
-  "/index.html",
-  "/manifest.webmanifest",
-  "/css/app.css",
-  "/js/app.js",
-  "/data/festival-pois.json",
-  "/data/tiles-manifest.json",
-  "/assets/edc_map.jpg",
-  "/vendor/leaflet/leaflet.js",
-  "/vendor/leaflet/leaflet.css",
-  "/vendor/leaflet/images/marker-icon.png",
-  "/vendor/leaflet/images/marker-icon-2x.png",
-  "/vendor/leaflet/images/marker-shadow.png",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
+function scopeBase() {
+  const s = self.registration && self.registration.scope ? self.registration.scope : self.location.href;
+  return s.endsWith("/") ? s : s + "/";
+}
+
+function scopedUrl(rel) {
+  const path = String(rel || "").replace(/^\//, "");
+  return new URL(path, scopeBase()).href;
+}
+
+const CORE_ASSETS_REL = [
+  "index.html",
+  "manifest.webmanifest",
+  "css/app.css",
+  "js/app.js",
+  "data/festival-pois.json",
+  "data/tiles-manifest.json",
+  "assets/edc_map.jpg",
+  "vendor/leaflet/leaflet.js",
+  "vendor/leaflet/leaflet.css",
+  "vendor/leaflet/images/marker-icon.png",
+  "vendor/leaflet/images/marker-icon-2x.png",
+  "vendor/leaflet/images/marker-shadow.png",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
 ];
 
 function cacheTileUrls(cache, urls) {
   return urls.reduce(
     (chain, path) =>
       chain.then(() =>
-        cache.add(path).catch((err) => {
+        cache.add(scopedUrl(path)).catch((err) => {
           console.warn("[sw] tile precache", path, err);
         })
       ),
@@ -35,9 +44,11 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(CORE_ASSETS))
+      .then((cache) =>
+        cache.addAll(CORE_ASSETS_REL.map((p) => scopedUrl(p))).then(() => cache.add(scopeBase()).catch(() => undefined))
+      )
       .then(() =>
-        fetch("/data/tiles-manifest.json")
+        fetch(scopedUrl("data/tiles-manifest.json"))
           .then((r) => r.json())
           .then((urls) => {
             if (!Array.isArray(urls)) return undefined;
@@ -89,7 +100,7 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => {
           if (req.mode === "navigate") {
-            return caches.match("/index.html");
+            return caches.match(scopedUrl("index.html"));
           }
           return Promise.reject(new Error("offline"));
         });
