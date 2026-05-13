@@ -7,7 +7,9 @@
   /** Legacy fragment still accepted on import (`#share=…`). */
   const LEGACY_SHARE_PREFIX = "share=";
   const SPLIT_PX_KEY = "edc2026_split_px";
-  /** "1" = dark online basemap (CARTO), "0" = light (OSM standard). Ignored when offline. */
+  /** "dark" | "light" — site-wide UI; online basemap follows (CARTO vs OSM). */
+  const SITE_THEME_KEY = "edc2026_site_theme";
+  /** Legacy key from map-only toggle; migrated once into SITE_THEME_KEY. */
   const MAP_ONLINE_DARK_KEY = "edc2026_online_map_dark";
 
   /** Directory URL of the app (works at site root or under a path like /edc/). */
@@ -148,7 +150,7 @@
     map: document.getElementById("map"),
     appTitle: document.getElementById("app-title"),
     offlineBadge: document.getElementById("offline-badge"),
-    mapThemeToggle: document.getElementById("map-theme-toggle"),
+    siteThemeToggle: document.getElementById("site-theme-toggle"),
     coordStrip: document.getElementById("coord-strip"),
     pinList: document.getElementById("pin-list"),
     btnCenter: document.getElementById("btn-center"),
@@ -224,8 +226,8 @@
   let onlineTilesLight = null;
   /** @type {import("leaflet").TileLayer | null} */
   let onlineTilesDark = null;
-  /** When online, true = dark basemap on top; false = light OSM. Offline: ignored (local dark tiles only). */
-  let onlineMapBasemapIsDark = false;
+  /** Site-wide dark UI + (when online) dark basemap. Light = light UI + OSM. */
+  let siteThemeIsDark = true;
   let onlineMode = false;
   const leafletMarkers = new Map();
   const poiMarkers = new Map();
@@ -354,8 +356,8 @@
     return L.divIcon({
       className: "edc-stage-label-wrap",
       html: '<span class="edc-stage-label">' + safe + "</span>",
-      iconSize: [160, 22],
-      iconAnchor: [80, 11],
+      iconSize: [200, 34],
+      iconAnchor: [100, 17],
     });
   }
 
@@ -371,9 +373,9 @@
         stroke: true,
         color: z.fill,
         weight: 1,
-        opacity: 0.28,
+        opacity: 0.42,
         fillColor: z.fill,
-        fillOpacity: 0.1,
+        fillOpacity: 0.14,
         interactive: false,
       }).addTo(stageFillLayer);
       L.marker(uvToLatLng(MAP_BOUNDS, cx, cy), {
@@ -581,7 +583,6 @@
     const baseDocTitle = "EDC Vegas 2026";
     document.title = baseDocTitle + suffix;
     if (els.appTitle) els.appTitle.textContent = "EDC VEGAS 2026" + (isOnline ? " · ONLINE" : " · OFFLINE");
-    syncMapThemeToggle();
   }
 
   function registerSw() {
@@ -658,18 +659,46 @@
     }, Math.round(dur * 1000) + 80);
   }
 
-  function loadOnlineMapBasemapPreference() {
+  function loadSiteThemePreference() {
     try {
-      return localStorage.getItem(MAP_ONLINE_DARK_KEY) === "1";
+      const v = localStorage.getItem(SITE_THEME_KEY);
+      if (v === "dark") return true;
+      if (v === "light") return false;
+      const legacy = localStorage.getItem(MAP_ONLINE_DARK_KEY);
+      if (legacy === "1") return true;
+      if (legacy === "0") return false;
     } catch {
-      return false;
+      /* ignore */
     }
+    return true;
   }
 
-  function saveOnlineMapBasemapPreference(isDark) {
+  function saveSiteThemePreference(isDark) {
     try {
-      localStorage.setItem(MAP_ONLINE_DARK_KEY, isDark ? "1" : "0");
+      localStorage.setItem(SITE_THEME_KEY, isDark ? "dark" : "light");
     } catch (_) {}
+  }
+
+  function applySiteTheme() {
+    document.documentElement.dataset.siteTheme = siteThemeIsDark ? "dark" : "light";
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", siteThemeIsDark ? "#0a0514" : "#ebe6f4");
+    if (els.siteThemeToggle) {
+      els.siteThemeToggle.checked = siteThemeIsDark;
+      els.siteThemeToggle.setAttribute("aria-checked", siteThemeIsDark ? "true" : "false");
+      els.siteThemeToggle.setAttribute(
+        "aria-label",
+        siteThemeIsDark ? "Dark mode on. Switch to light mode." : "Light mode on. Switch to dark mode."
+      );
+    }
+    const themeCap = document.getElementById("site-theme-toggle-caption");
+    if (themeCap) themeCap.textContent = siteThemeIsDark ? "Dark" : "Light";
+    if (onlineMode) {
+      applyMainMapOnlineBasemapLayers();
+      applyNavMapOnlineBasemapLayers();
+    }
+    if (map) map.invalidateSize({ animate: false });
+    if (navMap) navMap.invalidateSize({ animate: false });
   }
 
   function applyMainMapOnlineBasemapLayers() {
@@ -677,7 +706,7 @@
     if (onlineTilesLight && map.hasLayer(onlineTilesLight)) map.removeLayer(onlineTilesLight);
     if (onlineTilesDark && map.hasLayer(onlineTilesDark)) map.removeLayer(onlineTilesDark);
     if (!map.hasLayer(offlineTiles)) offlineTiles.addTo(map);
-    const top = onlineMapBasemapIsDark ? onlineTilesDark : onlineTilesLight;
+    const top = siteThemeIsDark ? onlineTilesDark : onlineTilesLight;
     if (top && !map.hasLayer(top)) top.addTo(map);
     if (top) top.bringToFront();
   }
@@ -687,29 +716,17 @@
     if (navMapOnlineTilesLight && navMap.hasLayer(navMapOnlineTilesLight)) navMap.removeLayer(navMapOnlineTilesLight);
     if (navMapOnlineTilesDark && navMap.hasLayer(navMapOnlineTilesDark)) navMap.removeLayer(navMapOnlineTilesDark);
     if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
-    const top = onlineMapBasemapIsDark ? navMapOnlineTilesDark : navMapOnlineTilesLight;
+    const top = siteThemeIsDark ? navMapOnlineTilesDark : navMapOnlineTilesLight;
     if (top && !navMap.hasLayer(top)) top.addTo(navMap);
     if (top) top.bringToFront();
-  }
-
-  function syncMapThemeToggle() {
-    const btn = els.mapThemeToggle;
-    if (!btn) return;
-    const online = typeof navigator !== "undefined" && navigator.onLine === true;
-    btn.hidden = !online;
-    if (!online) return;
-    btn.dataset.dark = onlineMapBasemapIsDark ? "true" : "false";
-    btn.setAttribute("aria-pressed", onlineMapBasemapIsDark ? "true" : "false");
-    btn.textContent = onlineMapBasemapIsDark ? "☀️" : "🌙";
-    btn.title = onlineMapBasemapIsDark ? "Light map (OpenStreetMap)" : "Dark map (CARTO)";
-    btn.setAttribute("aria-label", onlineMapBasemapIsDark ? "Switch to light online map" : "Switch to dark online map");
   }
 
   function initMap() {
     const WORLD_BOUNDS = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
     const startOnline = typeof navigator !== "undefined" && navigator.onLine === true;
     onlineMode = startOnline;
-    onlineMapBasemapIsDark = loadOnlineMapBasemapPreference();
+    siteThemeIsDark = loadSiteThemePreference();
+    applySiteTheme();
 
     map = L.map(els.map, {
       maxBounds: startOnline ? WORLD_BOUNDS : WIDE_BOUNDS,
@@ -801,12 +818,12 @@
         map.flyToBounds(MAP_BOUNDS.pad(0.08), { duration: 0.6 });
         lockToOfflineBounds();
       }
-      syncMapThemeToggle();
+      applySiteTheme();
     };
 
     window.addEventListener("online", () => applyConnectivityMode(true));
     window.addEventListener("offline", () => applyConnectivityMode(false));
-    syncMapThemeToggle();
+    applySiteTheme();
   }
 
   function renderCategoryChips() {
@@ -1877,14 +1894,11 @@
       });
     }
 
-    if (els.mapThemeToggle) {
-      els.mapThemeToggle.addEventListener("click", () => {
-        if (typeof navigator !== "undefined" && navigator.onLine !== true) return;
-        onlineMapBasemapIsDark = !onlineMapBasemapIsDark;
-        saveOnlineMapBasemapPreference(onlineMapBasemapIsDark);
-        applyMainMapOnlineBasemapLayers();
-        applyNavMapOnlineBasemapLayers();
-        syncMapThemeToggle();
+    if (els.siteThemeToggle) {
+      els.siteThemeToggle.addEventListener("change", (e) => {
+        siteThemeIsDark = !!e.target.checked;
+        saveSiteThemePreference(siteThemeIsDark);
+        applySiteTheme();
       });
     }
 

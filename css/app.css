@@ -10,6 +10,15 @@
   --safe-top: env(safe-area-inset-top, 0px);
 }
 
+html[data-site-theme="light"] {
+  color-scheme: light;
+  --bg: #e4ddf0;
+  --panel: rgba(255, 255, 255, 0.96);
+  --border: rgba(100, 40, 120, 0.28);
+  --text: #14081c;
+  --muted: #5c4a70;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -190,30 +199,177 @@ body {
   flex-shrink: 0;
 }
 
-.map-theme-toggle {
-  flex-shrink: 0;
-  min-width: 40px;
-  min-height: 36px;
-  padding: 4px 8px;
-  margin: 0;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(18, 8, 32, 0.75);
-  color: var(--text);
-  font-size: 1.15rem;
-  line-height: 1;
+.site-theme-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.04em;
 }
 
-.map-theme-toggle:active {
-  filter: brightness(1.12);
+.site-theme-toggle-text {
+  min-width: 2.5em;
 }
 
-.map-theme-toggle[data-dark="true"] {
-  border-color: rgba(255, 213, 0, 0.35);
-  background: rgba(40, 32, 10, 0.85);
+html[data-site-theme="light"] .app-title {
+  text-shadow: 0 0 14px rgba(255, 45, 196, 0.35);
+}
+
+html[data-site-theme="light"] .app-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), transparent);
+}
+
+html[data-site-theme="light"] .offline-badge {
+  color: #0a5c24;
+  border-color: rgba(40, 140, 60, 0.45);
+  background: rgba(57, 255, 20, 0.18);
+}
+
+html[data-site-theme="light"] .offline-badge[data-state="pending"] {
+  color: #8a5a00;
+  border-color: rgba(200, 140, 0, 0.45);
+  background: rgba(255, 200, 0, 0.2);
+}
+
+html[data-site-theme="light"] .sheet-tabs {
+  background: rgba(0, 0, 0, 0.04);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+html[data-site-theme="light"] .sheet-tab-count {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+html[data-site-theme="light"] .split-splitter {
+  background: linear-gradient(180deg, rgba(255, 45, 196, 0.12), rgba(240, 236, 248, 0.98));
+  border-top-color: var(--border);
+}
+
+html[data-site-theme="light"] .split-splitter::after {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+html[data-site-theme="light"] .fab {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  color: var(--text);
+}
+
+html[data-site-theme="light"] .poi-search,
+html[data-site-theme="light"] .poi-cat {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-site-theme="light"] .cat-chip {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-site-theme="light"] .map-attribution {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+html[data-site-theme="light"] .empty-hint {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-site-theme="light"] .leaflet-tooltip.poi-tip {
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html[data-site-theme="light"] .btn-ghost {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-site-theme="light"] .pin-item {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+html[data-site-theme="light"] .pin-actions button {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: var(--text);
+}
+
+html[data-site-theme="light"] .pin-actions button[data-a="del"] {
+  color: #b00020;
+}
+
+html[data-site-theme="light"] .leaflet-container {
+  background: #d8dce3;
+}
+
+html[data-site-theme="light"] .leaflet-popup-nav-shell .leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html[data-site-theme="light"] .leaflet-popup-nav-shell .leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: var(--border);
+}
+
+html[data-site-theme="light"] .toast {
+  background: rgba(255, 255, 255, 0.97);
+  color: var(--text);
+}
+
+html[data-site-theme="light"] dialog.modal {
+  background: #faf8ff;
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+}
+
+html[data-site-theme="light"] dialog.modal::backdrop {
+  background: rgba(40, 20, 60, 0.35);
+}
+
+html[data-site-theme="light"] .modal-body input[type="text"] {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-site-theme="light"] .nav-overlay {
+  background: radial-gradient(ellipse at center, #f0e8ff 0%, #dcd4ec 72%);
+}
+
+html[data-site-theme="light"] .nav-debug-readout {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html[data-site-theme="light"] .nav-compass-fallback {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(120, 60, 140, 0.28);
+}
+
+html[data-site-theme="light"] .compass-ring {
+  border-color: rgba(255, 45, 196, 0.35);
+  box-shadow: 0 0 28px rgba(255, 45, 196, 0.12), inset 0 0 40px rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+html[data-site-theme="light"] .toggle-track {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+html[data-site-theme="light"] .toggle-thumb {
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .offline-badge {
@@ -882,19 +1038,25 @@ dialog.modal::backdrop {
 }
 
 .edc-stage-label {
-  display: block;
+  display: inline-block;
+  max-width: 188px;
+  padding: 5px 12px;
+  border-radius: 999px;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: rgba(244, 236, 255, 0.38);
-  text-shadow:
-    0 0 10px rgba(0, 0, 0, 0.95),
-    0 1px 3px rgba(0, 0, 0, 0.9);
   text-align: center;
   white-space: nowrap;
-  max-width: 168px;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: rgba(255, 252, 255, 0.98);
+  background: rgba(10, 5, 20, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(0, 0, 0, 0.25) inset;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  -webkit-text-stroke: 0;
 }
 
 /* Map pin / POI selection — Navigate opens compass overlay */

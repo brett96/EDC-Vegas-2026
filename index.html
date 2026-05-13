@@ -24,17 +24,21 @@
         <header class="app-header">
           <span class="app-title" id="app-title">EDC VEGAS 2026</span>
           <div class="app-header-end">
-            <button
-              type="button"
-              class="map-theme-toggle"
-              id="map-theme-toggle"
-              hidden
-              aria-pressed="false"
-              aria-label="Switch to dark online map"
-              title="Dark map (CARTO)"
-            >
-              🌙
-            </button>
+            <label class="site-theme-toggle-label" for="site-theme-toggle">
+              <input
+                type="checkbox"
+                id="site-theme-toggle"
+                class="toggle-input site-theme-toggle-input"
+                role="switch"
+                checked
+                aria-checked="true"
+                aria-label="Dark mode"
+              />
+              <span class="toggle-switch site-theme-toggle-switch" aria-hidden="true">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </span>
+              <span class="site-theme-toggle-text" id="site-theme-toggle-caption" aria-hidden="true">Dark</span>
+            </label>
             <span id="offline-badge" class="offline-badge" data-state="pending">cache…</span>
           </div>
         </header>
