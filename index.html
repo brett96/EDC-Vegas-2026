@@ -23,7 +23,20 @@
       <div id="map-stack" class="map-stack">
         <header class="app-header">
           <span class="app-title" id="app-title">EDC VEGAS 2026</span>
-          <span id="offline-badge" class="offline-badge" data-state="pending">cache…</span>
+          <div class="app-header-end">
+            <button
+              type="button"
+              class="map-theme-toggle"
+              id="map-theme-toggle"
+              hidden
+              aria-pressed="false"
+              aria-label="Switch to dark online map"
+              title="Dark map (CARTO)"
+            >
+              🌙
+            </button>
+            <span id="offline-badge" class="offline-badge" data-state="pending">cache…</span>
+          </div>
         </header>
         <div class="map-pane">
           <div id="map" aria-label="Las Vegas Motor Speedway map"></div>

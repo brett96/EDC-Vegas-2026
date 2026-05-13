@@ -7,6 +7,8 @@
   /** Legacy fragment still accepted on import (`#share=…`). */
   const LEGACY_SHARE_PREFIX = "share=";
   const SPLIT_PX_KEY = "edc2026_split_px";
+  /** "1" = dark online basemap (CARTO), "0" = light (OSM standard). Ignored when offline. */
+  const MAP_ONLINE_DARK_KEY = "edc2026_online_map_dark";
 
   /** Directory URL of the app (works at site root or under a path like /edc/). */
   function getAssetBaseUrl() {
@@ -27,8 +29,10 @@
    * Leaflet needs literal `{z}/{x}/{y}` — `new URL()` encodes `{` and breaks tiles.
    */
   const BASEMAP_TILE_URL = ASSET_BASE_URL.replace(/\/?$/, "/") + "tiles/{z}/{x}/{y}.png";
-  /** Standard OpenStreetMap raster tiles when online (world map on top of local tiles). */
+  /** Standard OpenStreetMap raster tiles when online (light basemap). */
   const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  /** Dark online basemap (same family as bundled offline tiles). */
+  const CARTO_DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 
   /**
    * LVMS infield rectangle (landscape). Used to convert each POI's normalized
@@ -144,6 +148,7 @@
     map: document.getElementById("map"),
     appTitle: document.getElementById("app-title"),
     offlineBadge: document.getElementById("offline-badge"),
+    mapThemeToggle: document.getElementById("map-theme-toggle"),
     coordStrip: document.getElementById("coord-strip"),
     pinList: document.getElementById("pin-list"),
     btnCenter: document.getElementById("btn-center"),
@@ -216,7 +221,11 @@
   /** @type {import("leaflet").TileLayer | null} */
   let offlineTiles = null;
   /** @type {import("leaflet").TileLayer | null} */
-  let onlineTiles = null;
+  let onlineTilesLight = null;
+  /** @type {import("leaflet").TileLayer | null} */
+  let onlineTilesDark = null;
+  /** When online, true = dark basemap on top; false = light OSM. Offline: ignored (local dark tiles only). */
+  let onlineMapBasemapIsDark = false;
   let onlineMode = false;
   const leafletMarkers = new Map();
   const poiMarkers = new Map();
@@ -255,7 +264,9 @@
   /** @type {import("leaflet").TileLayer | null} */
   let navMapOfflineTiles = null;
   /** @type {import("leaflet").TileLayer | null} */
-  let navMapOnlineTiles = null;
+  let navMapOnlineTilesLight = null;
+  /** @type {import("leaflet").TileLayer | null} */
+  let navMapOnlineTilesDark = null;
   let navMapOnlineMode = false;
   /** @type {any | null} */
   let deferredInstallPrompt = null;
@@ -570,6 +581,7 @@
     const baseDocTitle = "EDC Vegas 2026";
     document.title = baseDocTitle + suffix;
     if (els.appTitle) els.appTitle.textContent = "EDC VEGAS 2026" + (isOnline ? " · ONLINE" : " · OFFLINE");
+    syncMapThemeToggle();
   }
 
   function registerSw() {
@@ -646,10 +658,58 @@
     }, Math.round(dur * 1000) + 80);
   }
 
+  function loadOnlineMapBasemapPreference() {
+    try {
+      return localStorage.getItem(MAP_ONLINE_DARK_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function saveOnlineMapBasemapPreference(isDark) {
+    try {
+      localStorage.setItem(MAP_ONLINE_DARK_KEY, isDark ? "1" : "0");
+    } catch (_) {}
+  }
+
+  function applyMainMapOnlineBasemapLayers() {
+    if (!map || !onlineMode || !offlineTiles) return;
+    if (onlineTilesLight && map.hasLayer(onlineTilesLight)) map.removeLayer(onlineTilesLight);
+    if (onlineTilesDark && map.hasLayer(onlineTilesDark)) map.removeLayer(onlineTilesDark);
+    if (!map.hasLayer(offlineTiles)) offlineTiles.addTo(map);
+    const top = onlineMapBasemapIsDark ? onlineTilesDark : onlineTilesLight;
+    if (top && !map.hasLayer(top)) top.addTo(map);
+    if (top) top.bringToFront();
+  }
+
+  function applyNavMapOnlineBasemapLayers() {
+    if (!navMap || !navMapOnlineMode) return;
+    if (navMapOnlineTilesLight && navMap.hasLayer(navMapOnlineTilesLight)) navMap.removeLayer(navMapOnlineTilesLight);
+    if (navMapOnlineTilesDark && navMap.hasLayer(navMapOnlineTilesDark)) navMap.removeLayer(navMapOnlineTilesDark);
+    if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
+    const top = onlineMapBasemapIsDark ? navMapOnlineTilesDark : navMapOnlineTilesLight;
+    if (top && !navMap.hasLayer(top)) top.addTo(navMap);
+    if (top) top.bringToFront();
+  }
+
+  function syncMapThemeToggle() {
+    const btn = els.mapThemeToggle;
+    if (!btn) return;
+    const online = typeof navigator !== "undefined" && navigator.onLine === true;
+    btn.hidden = !online;
+    if (!online) return;
+    btn.dataset.dark = onlineMapBasemapIsDark ? "true" : "false";
+    btn.setAttribute("aria-pressed", onlineMapBasemapIsDark ? "true" : "false");
+    btn.textContent = onlineMapBasemapIsDark ? "☀️" : "🌙";
+    btn.title = onlineMapBasemapIsDark ? "Light map (OpenStreetMap)" : "Dark map (CARTO)";
+    btn.setAttribute("aria-label", onlineMapBasemapIsDark ? "Switch to light online map" : "Switch to dark online map");
+  }
+
   function initMap() {
     const WORLD_BOUNDS = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
     const startOnline = typeof navigator !== "undefined" && navigator.onLine === true;
     onlineMode = startOnline;
+    onlineMapBasemapIsDark = loadOnlineMapBasemapPreference();
 
     map = L.map(els.map, {
       maxBounds: startOnline ? WORLD_BOUNDS : WIDE_BOUNDS,
@@ -660,12 +720,20 @@
       maxZoom: 19,
     });
 
-    // Online: OpenStreetMap world tiles on top; local bundled LVMS tiles underneath (warm cache, visible if OSM gaps).
-    onlineTiles = L.tileLayer(OSM_TILE_URL, {
+    // Online light: OSM standard. Online dark: CARTO dark (matches offline tile style). Local tiles underlay when online.
+    onlineTilesLight = L.tileLayer(OSM_TILE_URL, {
       minZoom: 2,
       maxZoom: 19,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · online',
+        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · online (light)',
+    });
+
+    onlineTilesDark = L.tileLayer(CARTO_DARK_TILE_URL, {
+      subdomains: "abcd",
+      minZoom: 2,
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · online (dark)',
     });
 
     // Offline bundled EDC-area tiles (also underlay when online).
@@ -682,8 +750,7 @@
 
     if (startOnline) {
       offlineTiles.addTo(map);
-      onlineTiles.addTo(map);
-      onlineTiles.bringToFront();
+      applyMainMapOnlineBasemapLayers();
     } else {
       offlineTiles.addTo(map);
     }
@@ -721,11 +788,11 @@
         } catch (_) {}
 
         if (offlineTiles && !map.hasLayer(offlineTiles)) offlineTiles.addTo(map);
-        if (onlineTiles && !map.hasLayer(onlineTiles)) onlineTiles.addTo(map);
-        if (onlineTiles) onlineTiles.bringToFront();
+        applyMainMapOnlineBasemapLayers();
       } else {
         // Offline: remove online tiles, lock bounds, and snap back to EDC.
-        if (onlineTiles && map.hasLayer(onlineTiles)) map.removeLayer(onlineTiles);
+        if (onlineTilesLight && map.hasLayer(onlineTilesLight)) map.removeLayer(onlineTilesLight);
+        if (onlineTilesDark && map.hasLayer(onlineTilesDark)) map.removeLayer(onlineTilesDark);
         if (offlineTiles && !map.hasLayer(offlineTiles)) offlineTiles.addTo(map);
 
         map.options.maxBoundsViscosity = 1.0;
@@ -734,10 +801,12 @@
         map.flyToBounds(MAP_BOUNDS.pad(0.08), { duration: 0.6 });
         lockToOfflineBounds();
       }
+      syncMapThemeToggle();
     };
 
     window.addEventListener("online", () => applyConnectivityMode(true));
     window.addEventListener("offline", () => applyConnectivityMode(false));
+    syncMapThemeToggle();
   }
 
   function renderCategoryChips() {
@@ -1340,7 +1409,13 @@
       maxZoom: 19,
     });
 
-    navMapOnlineTiles = L.tileLayer(OSM_TILE_URL, {
+    navMapOnlineTilesLight = L.tileLayer(OSM_TILE_URL, {
+      minZoom: 2,
+      maxZoom: 19,
+    });
+
+    navMapOnlineTilesDark = L.tileLayer(CARTO_DARK_TILE_URL, {
+      subdomains: "abcd",
       minZoom: 2,
       maxZoom: 19,
     });
@@ -1356,8 +1431,7 @@
 
     if (startOnline) {
       navMapOfflineTiles.addTo(navMap);
-      navMapOnlineTiles.addTo(navMap);
-      navMapOnlineTiles.bringToFront();
+      applyNavMapOnlineBasemapLayers();
     } else {
       navMapOfflineTiles.addTo(navMap);
     }
@@ -1384,10 +1458,10 @@
         } catch (_) {}
 
         if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
-        if (navMapOnlineTiles && !navMap.hasLayer(navMapOnlineTiles)) navMapOnlineTiles.addTo(navMap);
-        if (navMapOnlineTiles) navMapOnlineTiles.bringToFront();
+        applyNavMapOnlineBasemapLayers();
       } else {
-        if (navMapOnlineTiles && navMap.hasLayer(navMapOnlineTiles)) navMap.removeLayer(navMapOnlineTiles);
+        if (navMapOnlineTilesLight && navMap.hasLayer(navMapOnlineTilesLight)) navMap.removeLayer(navMapOnlineTilesLight);
+        if (navMapOnlineTilesDark && navMap.hasLayer(navMapOnlineTilesDark)) navMap.removeLayer(navMapOnlineTilesDark);
         if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
 
         navMap.options.maxBoundsViscosity = 1.0;
@@ -1800,6 +1874,17 @@
       els.btnEdcFloat.addEventListener("click", () => {
         if (!map) return;
         map.flyToBounds(MAP_BOUNDS.pad(0.08), { duration: 0.55 });
+      });
+    }
+
+    if (els.mapThemeToggle) {
+      els.mapThemeToggle.addEventListener("click", () => {
+        if (typeof navigator !== "undefined" && navigator.onLine !== true) return;
+        onlineMapBasemapIsDark = !onlineMapBasemapIsDark;
+        saveOnlineMapBasemapPreference(onlineMapBasemapIsDark);
+        applyMainMapOnlineBasemapLayers();
+        applyNavMapOnlineBasemapLayers();
+        syncMapThemeToggle();
       });
     }
 

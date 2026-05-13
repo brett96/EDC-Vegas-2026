@@ -183,6 +183,39 @@ body {
   text-shadow: 0 0 12px rgba(255, 45, 196, 0.6);
 }
 
+.app-header-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.map-theme-toggle {
+  flex-shrink: 0;
+  min-width: 40px;
+  min-height: 36px;
+  padding: 4px 8px;
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(18, 8, 32, 0.75);
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.map-theme-toggle:active {
+  filter: brightness(1.12);
+}
+
+.map-theme-toggle[data-dark="true"] {
+  border-color: rgba(255, 213, 0, 0.35);
+  background: rgba(40, 32, 10, 0.85);
+}
+
 .offline-badge {
   font-size: 0.7rem;
   padding: 4px 8px;
