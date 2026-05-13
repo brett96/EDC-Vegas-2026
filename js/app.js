@@ -218,6 +218,11 @@
   let navInterval = null;
   /** Throttle expensive minimap refits so GPS callbacks stay snappy. */
   let lastNavMiniMapFitAt = 0;
+  /** Most recent movement vector inferred from successive GPS fixes. */
+  let motionHeadingDeg = null;
+  let motionSpeedMps = 0;
+  let motionUpdatedAtMs = 0;
+  let prevGeoPosition = null;
   /** Coalesce compass DOM updates to one per animation frame. */
   let navReadoutRaf = null;
   let orientationHooked = false;
@@ -407,6 +412,57 @@
     const y = Math.sin(Δλ) * Math.cos(φ2);
     const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
     return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  }
+
+  function offsetLatLngMeters(from, bearing, meters) {
+    const R = 6371000;
+    const br = (bearing * Math.PI) / 180;
+    const dR = meters / R;
+    const lat1 = (from.lat * Math.PI) / 180;
+    const lon1 = (from.lng * Math.PI) / 180;
+    const sinLat1 = Math.sin(lat1);
+    const cosLat1 = Math.cos(lat1);
+    const sinDR = Math.sin(dR);
+    const cosDR = Math.cos(dR);
+    const sinLat2 = sinLat1 * cosDR + cosLat1 * sinDR * Math.cos(br);
+    const lat2 = Math.asin(Math.min(1, Math.max(-1, sinLat2)));
+    const y = Math.sin(br) * sinDR * cosLat1;
+    const x = cosDR - sinLat1 * Math.sin(lat2);
+    const lon2 = lon1 + Math.atan2(y, x);
+    return { lat: (lat2 * 180) / Math.PI, lng: ((((lon2 * 180) / Math.PI + 540) % 360) - 180) };
+  }
+
+  function navEstimatedHere() {
+    if (!lastPosition) return null;
+    const base = { lat: lastPosition.coords.latitude, lng: lastPosition.coords.longitude };
+    const now = Date.now();
+    const fixTs = typeof lastPosition.timestamp === "number" ? lastPosition.timestamp : now;
+
+    let heading = null;
+    const rawHeading = lastPosition.coords.heading;
+    if (typeof rawHeading === "number" && Number.isFinite(rawHeading) && rawHeading >= 0) heading = rawHeading;
+
+    let speed = null;
+    const rawSpeed = lastPosition.coords.speed;
+    if (typeof rawSpeed === "number" && Number.isFinite(rawSpeed) && rawSpeed > 0.35) speed = rawSpeed;
+
+    if (
+      (heading == null || speed == null) &&
+      motionHeadingDeg != null &&
+      Number.isFinite(motionSpeedMps) &&
+      motionSpeedMps > 0.35 &&
+      now - motionUpdatedAtMs <= 6000
+    ) {
+      if (heading == null) heading = motionHeadingDeg;
+      if (speed == null) speed = motionSpeedMps;
+    }
+
+    const elapsedSec = Math.max(0, (now - fixTs) / 1000);
+    if (heading == null || speed == null || speed <= 0.35 || elapsedSec < 0.05) return base;
+
+    // Limit dead-reckoning horizon so estimates stay close to real GPS fixes.
+    const projectSec = Math.min(elapsedSec, 2.2);
+    return offsetLatLngMeters(base, heading, speed * projectSec);
   }
 
   function formatDist(m) {
@@ -917,7 +973,10 @@
     renderPoiList();
     updateNavReadout();
     if (navInterval) clearInterval(navInterval);
-    navInterval = setInterval(updateNavReadout, 120);
+    navInterval = setInterval(() => {
+      updateNavReadout();
+      updateNavMiniMap();
+    }, 90);
     requestAnimationFrame(() => {
       initNavMap();
       updateNavMiniMap();
@@ -1028,7 +1087,8 @@
 
   function updateNavReadout() {
     if (!activeNavTarget) return;
-    if (!lastPosition) {
+    const here = navEstimatedHere();
+    if (!here) {
       els.navDistance.textContent = "—";
       els.navBearing.textContent = "Waiting for GPS…";
       if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(0deg)";
@@ -1037,7 +1097,6 @@
       syncNavCompassPanel();
       return;
     }
-    const here = { lat: lastPosition.coords.latitude, lng: lastPosition.coords.longitude };
     const there = { lat: activeNavTarget.lat, lng: activeNavTarget.lng };
     const dist = haversineM(here, there);
     const brg = bearingDeg(here, there);
@@ -1063,6 +1122,21 @@
 
   function onGeoSuccess(pos) {
     geoPermissionDenied = false;
+    if (prevGeoPosition && prevGeoPosition.coords) {
+      const prev = prevGeoPosition.coords;
+      const dtSec = Math.max(0, (pos.timestamp - prevGeoPosition.timestamp) / 1000);
+      if (dtSec >= 0.35 && dtSec <= 8) {
+        const prevHere = { lat: prev.latitude, lng: prev.longitude };
+        const currHere = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const movedM = haversineM(prevHere, currHere);
+        if (movedM >= 0.9) {
+          motionHeadingDeg = bearingDeg(prevHere, currHere);
+          motionSpeedMps = movedM / dtSec;
+          motionUpdatedAtMs = Date.now();
+        }
+      }
+    }
+    prevGeoPosition = pos;
     lastPosition = pos;
     const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
     userMarker.setLatLng(ll);
@@ -1117,8 +1191,8 @@
     if (geoWatchId != null) navigator.geolocation.clearWatch(geoWatchId);
     geoWatchId = navigator.geolocation.watchPosition(onGeoSuccess, onGeoErr, {
       enableHighAccuracy: true,
-      maximumAge: 750,
-      timeout: 20000,
+      maximumAge: 0,
+      timeout: 10000,
     });
   }
 
@@ -1291,8 +1365,9 @@
     const now = typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
     const targetLL = L.latLng(activeNavTarget.lat, activeNavTarget.lng);
     navMapTargetMk.setLatLng(targetLL);
-    if (lastPosition) {
-      const here = L.latLng(lastPosition.coords.latitude, lastPosition.coords.longitude);
+    const hereEst = navEstimatedHere();
+    if (hereEst) {
+      const here = L.latLng(hereEst.lat, hereEst.lng);
       navMapUserMk.setLatLng(here);
       navMapLine.setLatLngs([here, targetLL]);
       if (now - lastNavMiniMapFitAt >= 380) {
