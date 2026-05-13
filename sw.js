@@ -1,5 +1,5 @@
 /* Offline shell — precache resolves from this script's URL (root or /edc/ etc.) */
-const CACHE = "edc-vegas-2026-v43";
+const CACHE = "edc-vegas-2026-v45";
 
 function scopeBase() {
   const s = self.registration && self.registration.scope ? self.registration.scope : self.location.href;
@@ -20,6 +20,7 @@ const CORE_ASSETS_REL = [
   "data/festival-pois.json",
   "data/tiles-manifest.json",
   "assets/edc_map.jpg",
+  "assets/EDC Las Vegas 2026 Schedule & Planning - Public.csv",
   "vendor/leaflet/leaflet.js",
   "vendor/leaflet/leaflet.css",
   "vendor/leaflet/images/marker-icon.png",

@@ -11,6 +11,12 @@
   const SITE_THEME_KEY = "edc2026_site_theme";
   /** Legacy key from map-only toggle; migrated once into SITE_THEME_KEY. */
   const MAP_ONLINE_DARK_KEY = "edc2026_online_map_dark";
+  /** Selected artist/set ids for the Schedule tab. */
+  const SCHEDULE_STORAGE_KEY = "edc2026_schedule_sets_v1";
+  const DEFAULT_SET_MINUTES = 60;
+  const WALK_METERS_PER_MINUTE = 62; // ~2.3 mph in dense festival crowds
+  const WALK_BUFFER_MINUTES = 5;
+  const MIN_TRANSITION_MINUTES = 2;
 
   /** Directory URL of the app (works at site root or under a path like /edc/). */
   function getAssetBaseUrl() {
@@ -26,6 +32,7 @@
   }
 
   const POI_DATA_URL = asset("data/festival-pois.json");
+  const SCHEDULE_DATA_URL = asset("assets/EDC Las Vegas 2026 Schedule & Planning - Public.csv");
   /**
    * Bundled LVMS raster tiles (precached; used offline and as underlay when online).
    * Leaflet needs literal `{z}/{x}/{y}` — `new URL()` encodes `{` and breaks tiles.
@@ -147,6 +154,13 @@
     other: "#9a8ab8",
   };
 
+  const DAY_LABELS = {
+    FRIDAY: "Friday",
+    SATURDAY: "Saturday",
+    SUNDAY: "Sunday",
+    TBA: "TBA",
+  };
+
   const els = {
     map: document.getElementById("map"),
     appTitle: document.getElementById("app-title"),
@@ -205,13 +219,28 @@
     toast: document.getElementById("toast"),
     tabMeetups: document.getElementById("tab-meetups"),
     tabVenue: document.getElementById("tab-venue"),
+    tabSchedule: document.getElementById("tab-schedule"),
     panelMeetups: document.getElementById("panel-meetups"),
     panelVenue: document.getElementById("panel-venue"),
+    panelSchedule: document.getElementById("panel-schedule"),
     poiSearch: document.getElementById("poi-search"),
     catChips: document.getElementById("cat-chips"),
     poiList: document.getElementById("poi-list"),
+    scheduleSearch: document.getElementById("schedule-search"),
+    scheduleSelectedOnly: document.getElementById("schedule-selected-only"),
+    scheduleDay: document.getElementById("schedule-day"),
+    scheduleStage: document.getElementById("schedule-stage"),
+    scheduleGenre: document.getElementById("schedule-genre"),
+    scheduleConflictSummary: document.getElementById("schedule-conflict-summary"),
+    scheduleItineraryList: document.getElementById("schedule-itinerary-list"),
+    scheduleSetList: document.getElementById("schedule-set-list"),
+    scheduleWalkInfo: document.getElementById("schedule-walk-info"),
+    scheduleWalkInfoBtn: document.getElementById("schedule-walk-info-btn"),
+    scheduleWalkTooltip: document.getElementById("schedule-walk-tooltip"),
+    scheduleWalkTooltipBody: document.getElementById("schedule-walk-tooltip-body"),
     meetupsCount: document.getElementById("meetups-count"),
     venueCount: document.getElementById("venue-count"),
+    scheduleCount: document.getElementById("schedule-count"),
     emptyMeetups: document.getElementById("empty-meetups"),
   };
 
@@ -233,6 +262,11 @@
   const leafletMarkers = new Map();
   const poiMarkers = new Map();
   let allPois = [];
+  let allScheduleSets = [];
+  const selectedScheduleSetIds = new Set();
+  let scheduleDays = [];
+  let scheduleStages = [];
+  let scheduleGenres = [];
   let lastPosition = null;
   let compassHeading = null;
   /** @type {{ kind: 'pin'|'poi', id: string, name: string, lat: number, lng: number, category?: string } | null} */
@@ -714,6 +748,549 @@
   function cardinal(deg) {
     const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"];
     return dirs[Math.round(deg / 45) % 8];
+  }
+
+  function normalizeKey(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
+  function loadScheduleSelection() {
+    selectedScheduleSetIds.clear();
+    try {
+      const raw = localStorage.getItem(SCHEDULE_STORAGE_KEY);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return;
+      arr.forEach((id) => {
+        if (typeof id === "string" && id) selectedScheduleSetIds.add(id);
+      });
+    } catch (_) {
+      /* ignore malformed data */
+    }
+  }
+
+  function saveScheduleSelection() {
+    try {
+      localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(Array.from(selectedScheduleSetIds)));
+    } catch (_) {}
+  }
+
+  function parseCsvLine(line) {
+    const out = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === "," && !inQuotes) {
+        out.push(cur);
+        cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    out.push(cur);
+    return out;
+  }
+
+  function parseCsvRows(csvText) {
+    const lines = String(csvText || "")
+      .replace(/^\uFEFF/, "")
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0);
+    if (!lines.length) return [];
+    const headers = parseCsvLine(lines[0]).map((h) => h.trim());
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCsvLine(lines[i]);
+      const row = {};
+      headers.forEach((h, idx) => {
+        row[h] = (cols[idx] || "").trim();
+      });
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  function parseScheduleDateTime(dateText, timeText) {
+    const dateRaw = String(dateText || "").trim();
+    const timeRaw = String(timeText || "").trim();
+    if (!dateRaw || !timeRaw) return null;
+    if (dateRaw.toUpperCase() === "TBA" || timeRaw.toUpperCase() === "TBA") return null;
+    const dm = dateRaw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!dm) return null;
+    const tm = timeRaw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!tm) return null;
+    let hour = Number(tm[1]);
+    const min = Number(tm[2]);
+    const ampm = tm[3].toUpperCase();
+    if (!Number.isFinite(hour) || !Number.isFinite(min)) return null;
+    if (hour < 1 || hour > 12 || min < 0 || min > 59) return null;
+    if (ampm === "AM") {
+      if (hour === 12) hour = 0;
+    } else if (hour !== 12) {
+      hour += 12;
+    }
+    const month = Number(dm[1]);
+    const day = Number(dm[2]);
+    const year = Number(dm[3]);
+    const dt = new Date(year, month - 1, day, hour, min, 0, 0);
+    const ts = dt.getTime();
+    return Number.isFinite(ts) ? ts : null;
+  }
+
+  function formatScheduleStamp(ms) {
+    if (!Number.isFinite(ms)) return "TBA";
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(ms);
+  }
+
+  function formatScheduleTime(ms) {
+    if (!Number.isFinite(ms)) return "TBA";
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(ms);
+  }
+
+  function setSelectOptions(selectEl, options, allLabel) {
+    if (!selectEl) return;
+    const prior = selectEl.value || "all";
+    selectEl.innerHTML = "";
+    const allOpt = document.createElement("option");
+    allOpt.value = "all";
+    allOpt.textContent = allLabel;
+    selectEl.appendChild(allOpt);
+    options.forEach((opt) => {
+      const optionEl = document.createElement("option");
+      optionEl.value = opt.value;
+      optionEl.textContent = opt.label;
+      selectEl.appendChild(optionEl);
+    });
+    selectEl.value = Array.from(selectEl.options).some((o) => o.value === prior) ? prior : "all";
+  }
+
+  function inferScheduleSetEndTimes(sets) {
+    const grouped = new Map();
+    sets.forEach((set) => {
+      if (!Number.isFinite(set.startMs)) {
+        set.endMs = null;
+        return;
+      }
+      const key = set.stageKey + "|" + set.dateText;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(set);
+    });
+    grouped.forEach((items) => {
+      items.sort((a, b) => {
+        if (a.startMs !== b.startMs) return a.startMs - b.startMs;
+        return a.artist.localeCompare(b.artist);
+      });
+      for (let i = 0; i < items.length; i++) {
+        const cur = items[i];
+        const next = items[i + 1];
+        const defaultEnd = cur.startMs + DEFAULT_SET_MINUTES * 60000;
+        if (!next || !Number.isFinite(next.startMs)) {
+          cur.endMs = defaultEnd;
+          continue;
+        }
+        const minEnd = cur.startMs + 30 * 60000;
+        cur.endMs = Math.max(minEnd, next.startMs);
+      }
+    });
+  }
+
+  function parseScheduleCsv(csvText) {
+    const rows = parseCsvRows(csvText);
+    const sets = [];
+    rows.forEach((row, idx) => {
+      const artist = String(row["Artist"] || "").trim();
+      if (!artist) return;
+      const dayRaw = String(row["Day"] || "TBA").trim().toUpperCase() || "TBA";
+      const stageName = String(row["Stage"] || "TBA").trim() || "TBA";
+      const genre = String(row["Genre/Style"] || "Unknown").trim() || "Unknown";
+      const dateText = String(row["Date"] || "TBA").trim() || "TBA";
+      const timeText = String(row["Set Time"] || "TBA").trim() || "TBA";
+      const startMs = parseScheduleDateTime(dateText, timeText);
+      sets.push({
+        id: "set-" + (idx + 1),
+        artist,
+        genre,
+        stage: stageName,
+        stageKey: normalizeKey(stageName),
+        dayRaw,
+        dayLabel: DAY_LABELS[dayRaw] || dayRaw || "TBA",
+        dateText,
+        timeText,
+        startMs,
+        endMs: null,
+        stagePoiId: null,
+        stageLat: null,
+        stageLng: null,
+      });
+    });
+    inferScheduleSetEndTimes(sets);
+    return sets;
+  }
+
+  function buildScheduleStageLookup() {
+    const lookup = new Map();
+    allPois.forEach((p) => {
+      if (p.category !== "stage" || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return;
+      lookup.set(normalizeKey(p.name), { poiId: p.id, lat: p.lat, lng: p.lng, label: p.name });
+    });
+    STAGE_UV_ZONES.forEach((z) => {
+      const key = normalizeKey(z.name);
+      if (lookup.has(key)) return;
+      const [u, v] = uvPolygonCentroid(z.uvRing);
+      const ll = uvToLatLng(MAP_BOUNDS, u, v);
+      lookup.set(key, { poiId: null, lat: ll.lat, lng: ll.lng, label: z.name });
+    });
+    return lookup;
+  }
+
+  function hydrateScheduleStageRefs() {
+    const lookup = buildScheduleStageLookup();
+    allScheduleSets.forEach((set) => {
+      const ref = lookup.get(set.stageKey);
+      if (!ref) return;
+      set.stagePoiId = ref.poiId;
+      set.stageLat = ref.lat;
+      set.stageLng = ref.lng;
+    });
+  }
+
+  function buildScheduleFilterOptions() {
+    scheduleDays = Array.from(new Set(allScheduleSets.map((s) => s.dayRaw))).sort((a, b) => {
+      const order = ["FRIDAY", "SATURDAY", "SUNDAY", "TBA"];
+      const ai = order.indexOf(a);
+      const bi = order.indexOf(b);
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+    });
+    scheduleStages = Array.from(new Set(allScheduleSets.map((s) => s.stage))).sort((a, b) => a.localeCompare(b));
+    scheduleGenres = Array.from(new Set(allScheduleSets.map((s) => s.genre))).sort((a, b) => a.localeCompare(b));
+
+    setSelectOptions(
+      els.scheduleDay,
+      scheduleDays.map((d) => ({ value: d, label: DAY_LABELS[d] || d })),
+      "All days"
+    );
+    setSelectOptions(
+      els.scheduleStage,
+      scheduleStages.map((s) => ({ value: normalizeKey(s), label: s })),
+      "All stages"
+    );
+    setSelectOptions(
+      els.scheduleGenre,
+      scheduleGenres.map((g) => ({ value: g, label: g })),
+      "All genres"
+    );
+  }
+
+  function filteredScheduleSets() {
+    const q = (els.scheduleSearch && els.scheduleSearch.value ? els.scheduleSearch.value : "").trim().toLowerCase();
+    const day = els.scheduleDay ? els.scheduleDay.value : "all";
+    const stage = els.scheduleStage ? els.scheduleStage.value : "all";
+    const genre = els.scheduleGenre ? els.scheduleGenre.value : "all";
+    const selectedOnly = !!(els.scheduleSelectedOnly && els.scheduleSelectedOnly.checked);
+    const list = allScheduleSets.filter((set) => {
+      if (selectedOnly && !selectedScheduleSetIds.has(set.id)) return false;
+      if (day !== "all" && set.dayRaw !== day) return false;
+      if (stage !== "all" && set.stageKey !== stage) return false;
+      if (genre !== "all" && set.genre !== genre) return false;
+      if (!q) return true;
+      return (
+        set.artist.toLowerCase().includes(q) ||
+        set.genre.toLowerCase().includes(q) ||
+        set.stage.toLowerCase().includes(q) ||
+        set.dayLabel.toLowerCase().includes(q) ||
+        set.timeText.toLowerCase().includes(q)
+      );
+    });
+    list.sort((a, b) => {
+      const aTimed = Number.isFinite(a.startMs);
+      const bTimed = Number.isFinite(b.startMs);
+      if (aTimed && bTimed) {
+        if (a.startMs !== b.startMs) return a.startMs - b.startMs;
+      } else if (aTimed !== bTimed) {
+        return aTimed ? -1 : 1;
+      }
+      return a.artist.localeCompare(b.artist);
+    });
+    return list;
+  }
+
+  function addScheduleConflict(map, a, b) {
+    if (!map.has(a.id)) map.set(a.id, new Set());
+    if (!map.has(b.id)) map.set(b.id, new Set());
+    map.get(a.id).add(b.id);
+    map.get(b.id).add(a.id);
+  }
+
+  function computeSchedulePlan() {
+    const selected = allScheduleSets.filter((set) => selectedScheduleSetIds.has(set.id));
+    const timed = selected
+      .filter((set) => Number.isFinite(set.startMs))
+      .sort((a, b) => (a.startMs !== b.startMs ? a.startMs - b.startMs : a.artist.localeCompare(b.artist)));
+    const untimed = selected.filter((set) => !Number.isFinite(set.startMs)).sort((a, b) => a.artist.localeCompare(b.artist));
+    const conflictsById = new Map();
+    const conflictPairs = [];
+
+    for (let i = 0; i < timed.length; i++) {
+      const a = timed[i];
+      const aEnd = Number.isFinite(a.endMs) ? a.endMs : a.startMs + DEFAULT_SET_MINUTES * 60000;
+      for (let j = i + 1; j < timed.length; j++) {
+        const b = timed[j];
+        const bStart = b.startMs;
+        if (bStart >= aEnd) break;
+        const bEnd = Number.isFinite(b.endMs) ? b.endMs : b.startMs + DEFAULT_SET_MINUTES * 60000;
+        if (bStart < aEnd && a.startMs < bEnd) {
+          addScheduleConflict(conflictsById, a, b);
+          conflictPairs.push([a, b]);
+        }
+      }
+    }
+
+    const itinerary = timed.map((set, idx) => {
+      const next = timed[idx + 1] || null;
+      let walkMinutes = null;
+      let leaveByMs = null;
+      let transitTight = false;
+      if (next && Number.isFinite(set.stageLat) && Number.isFinite(set.stageLng) && Number.isFinite(next.stageLat) && Number.isFinite(next.stageLng)) {
+        const distMeters = haversineM({ lat: set.stageLat, lng: set.stageLng }, { lat: next.stageLat, lng: next.stageLng });
+        walkMinutes = Math.max(
+          MIN_TRANSITION_MINUTES,
+          Math.ceil(distMeters / WALK_METERS_PER_MINUTE + WALK_BUFFER_MINUTES)
+        );
+        const hardEnd = Number.isFinite(set.endMs) ? set.endMs : set.startMs + DEFAULT_SET_MINUTES * 60000;
+        leaveByMs = Math.min(hardEnd, next.startMs - walkMinutes * 60000);
+        transitTight = leaveByMs < set.startMs;
+      }
+      return {
+        set,
+        next,
+        walkMinutes,
+        leaveByMs,
+        transitTight,
+        hasConflict: conflictsById.has(set.id),
+      };
+    });
+
+    return { selected, timed, untimed, conflictsById, conflictPairs, itinerary };
+  }
+
+  function makeScheduleSetMeta(set) {
+    const when = Number.isFinite(set.startMs) ? formatScheduleStamp(set.startMs) : set.dayLabel + " · " + set.dateText + " " + set.timeText;
+    return when + " · " + set.stage + " · " + set.genre;
+  }
+
+  function wireScheduleMapButtons(root, set) {
+    const mapBtn = root.querySelector('[data-a="map"]');
+    const navBtn = root.querySelector('[data-a="go"]');
+    const canMap = !!(set.stagePoiId && poiMarkers.has(set.stagePoiId));
+    if (mapBtn) {
+      mapBtn.disabled = !canMap;
+      mapBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!canMap) return;
+        const mk = poiMarkers.get(set.stagePoiId);
+        if (mk) flyToAndOpenPopup(mk, 16);
+      });
+    }
+    if (navBtn) {
+      navBtn.disabled = !canMap;
+      navBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!canMap) return;
+        openNavForPoi(set.stagePoiId);
+      });
+    }
+  }
+
+  function renderScheduleItinerary(plan) {
+    if (!els.scheduleItineraryList) return;
+    els.scheduleItineraryList.innerHTML = "";
+    if (!plan.selected.length) {
+      const li = document.createElement("li");
+      li.className = "schedule-item";
+      li.innerHTML =
+        '<div class="schedule-meta">No sets saved yet. Tap Save on any artist below to build your itinerary.</div>';
+      els.scheduleItineraryList.appendChild(li);
+      return;
+    }
+
+    plan.itinerary.forEach((entry) => {
+      const set = entry.set;
+      const li = document.createElement("li");
+      li.className = "schedule-item";
+      li.dataset.selected = "true";
+      li.dataset.conflict = entry.hasConflict ? "true" : "false";
+      const leaveLine = (() => {
+        if (!entry.next) return "Leave by: Last scheduled set";
+        if (!Number.isFinite(entry.leaveByMs) || !Number.isFinite(entry.walkMinutes)) {
+          return "Leave by: unavailable (missing stage route)";
+        }
+        if (entry.transitTight) {
+          return "Leave by: " + formatScheduleTime(entry.leaveByMs) + " (tight transfer)";
+        }
+        return "Leave by: " + formatScheduleTime(entry.leaveByMs) + " (" + entry.walkMinutes + " min walk)";
+      })();
+      li.innerHTML = `
+        <div class="schedule-row">
+          <div class="schedule-name"></div>
+          <div class="schedule-actions">
+            <button type="button" data-a="go">Navigate</button>
+            <button type="button" data-a="map">Map</button>
+            <button type="button" data-a="toggle">Remove</button>
+          </div>
+        </div>
+        <div class="schedule-meta"></div>
+        <div class="schedule-leave"></div>
+      `;
+      li.querySelector(".schedule-name").textContent = set.artist;
+      li.querySelector(".schedule-meta").textContent = makeScheduleSetMeta(set);
+      li.querySelector(".schedule-leave").textContent = leaveLine;
+      li.querySelector('[data-a="toggle"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleScheduleSelection(set.id);
+      });
+      wireScheduleMapButtons(li, set);
+      els.scheduleItineraryList.appendChild(li);
+    });
+
+    plan.untimed.forEach((set) => {
+      const li = document.createElement("li");
+      li.className = "schedule-item";
+      li.dataset.selected = "true";
+      li.innerHTML = `
+        <div class="schedule-row">
+          <div class="schedule-name"></div>
+          <div class="schedule-actions">
+            <button type="button" data-a="go">Navigate</button>
+            <button type="button" data-a="map">Map</button>
+            <button type="button" data-a="toggle">Remove</button>
+          </div>
+        </div>
+        <div class="schedule-meta"></div>
+        <div class="schedule-leave">Leave by: TBA until official time is published.</div>
+      `;
+      li.querySelector(".schedule-name").textContent = set.artist;
+      li.querySelector(".schedule-meta").textContent = makeScheduleSetMeta(set);
+      li.querySelector('[data-a="toggle"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleScheduleSelection(set.id);
+      });
+      wireScheduleMapButtons(li, set);
+      els.scheduleItineraryList.appendChild(li);
+    });
+  }
+
+  function renderScheduleSetList(plan) {
+    if (!els.scheduleSetList) return;
+    const conflictIds = new Set(plan.conflictsById.keys());
+    const filtered = filteredScheduleSets();
+    els.scheduleSetList.innerHTML = "";
+    if (!filtered.length) {
+      const li = document.createElement("li");
+      li.className = "schedule-item";
+      li.innerHTML = '<div class="schedule-meta">No sets match your current search/filter.</div>';
+      els.scheduleSetList.appendChild(li);
+      return;
+    }
+    filtered.forEach((set) => {
+      const selected = selectedScheduleSetIds.has(set.id);
+      const li = document.createElement("li");
+      li.className = "schedule-item";
+      li.dataset.selected = selected ? "true" : "false";
+      li.dataset.conflict = selected && conflictIds.has(set.id) ? "true" : "false";
+      li.innerHTML = `
+        <div class="schedule-row">
+          <div class="schedule-name"></div>
+          <div class="schedule-actions">
+            <button type="button" data-a="go">Navigate</button>
+            <button type="button" data-a="map">Map</button>
+            <button type="button" data-a="toggle"></button>
+          </div>
+        </div>
+        <div class="schedule-meta"></div>
+      `;
+      li.querySelector(".schedule-name").textContent = set.artist;
+      li.querySelector(".schedule-meta").textContent = makeScheduleSetMeta(set);
+      li.querySelector('[data-a="toggle"]').textContent = selected ? "Remove" : "Save";
+      li.querySelector('[data-a="toggle"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleScheduleSelection(set.id);
+      });
+      wireScheduleMapButtons(li, set);
+      els.scheduleSetList.appendChild(li);
+    });
+  }
+
+  function renderScheduleTab() {
+    if (els.scheduleCount) els.scheduleCount.textContent = String(selectedScheduleSetIds.size);
+    const plan = computeSchedulePlan();
+    if (els.scheduleConflictSummary) {
+      const conflicts = plan.conflictPairs.length;
+      if (conflicts > 0) {
+        const pairWord = conflicts === 1 ? "conflict" : "conflicts";
+        els.scheduleConflictSummary.hidden = false;
+        els.scheduleConflictSummary.textContent =
+          conflicts + " " + pairWord + " detected in your saved itinerary. Overlapping sets are highlighted.";
+      } else {
+        els.scheduleConflictSummary.hidden = true;
+      }
+    }
+    renderScheduleItinerary(plan);
+    renderScheduleSetList(plan);
+  }
+
+  function toggleScheduleSelection(setId) {
+    if (!setId) return;
+    if (selectedScheduleSetIds.has(setId)) selectedScheduleSetIds.delete(setId);
+    else selectedScheduleSetIds.add(setId);
+    saveScheduleSelection();
+    renderScheduleTab();
+  }
+
+  async function loadFestivalSchedule() {
+    try {
+      const res = await fetch(SCHEDULE_DATA_URL, { cache: "force-cache" });
+      if (!res.ok) throw new Error(String(res.status));
+      const csvText = await res.text();
+      allScheduleSets = parseScheduleCsv(csvText);
+      hydrateScheduleStageRefs();
+      const validIds = new Set(allScheduleSets.map((s) => s.id));
+      let changed = false;
+      Array.from(selectedScheduleSetIds).forEach((id) => {
+        if (!validIds.has(id)) {
+          selectedScheduleSetIds.delete(id);
+          changed = true;
+        }
+      });
+      if (changed) saveScheduleSelection();
+      buildScheduleFilterOptions();
+      renderScheduleTab();
+    } catch (err) {
+      console.error(err);
+      if (els.scheduleSetList) {
+        els.scheduleSetList.innerHTML =
+          '<li class="schedule-item"><div class="schedule-meta">Schedule failed to load. Open the app online once, then retry.</div></li>';
+      }
+      toast("Schedule failed to load — open online once, then retry.");
+    }
   }
 
   function toast(msg) {
@@ -1955,12 +2532,78 @@
     else history.replaceState(null, "", location.pathname + location.search);
   }
 
+  function initScheduleWalkTooltipText() {
+    if (!els.scheduleWalkTooltipBody) return;
+    const mph = (WALK_METERS_PER_MINUTE * 60) / 1609.344;
+    const mphStr = mph >= 10 ? mph.toFixed(1) : mph.toFixed(2);
+    els.scheduleWalkTooltipBody.textContent =
+      "Leave By uses straight-line distance between stage pins on the map (not turn-by-turn routing; real walks are longer). " +
+      "Time assumes about " +
+      WALK_METERS_PER_MINUTE +
+      " meters per minute (~" +
+      mphStr +
+      " mi/h) through crowds plus " +
+      WALK_BUFFER_MINUTES +
+      " minutes buffer, with at least " +
+      MIN_TRANSITION_MINUTES +
+      " minutes between sets. " +
+      "The CSV has start times only: each set is assumed to end when the next act starts on the same stage, or after " +
+      DEFAULT_SET_MINUTES +
+      " minutes if there is no later slot.";
+  }
+
+  function closeScheduleWalkTooltip() {
+    if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn) return;
+    els.scheduleWalkTooltip.hidden = true;
+    els.scheduleWalkInfoBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function openScheduleWalkTooltip() {
+    if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn) return;
+    els.scheduleWalkTooltip.hidden = false;
+    els.scheduleWalkInfoBtn.setAttribute("aria-expanded", "true");
+  }
+
+  function toggleScheduleWalkTooltip() {
+    if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn) return;
+    if (els.scheduleWalkTooltip.hidden) openScheduleWalkTooltip();
+    else closeScheduleWalkTooltip();
+  }
+
+  function onDocPointerCloseScheduleWalk(ev) {
+    if (!els.scheduleWalkTooltip || els.scheduleWalkTooltip.hidden) return;
+    if (els.scheduleWalkInfo && els.scheduleWalkInfo.contains(ev.target)) return;
+    closeScheduleWalkTooltip();
+  }
+
+  function onKeyCloseScheduleWalk(ev) {
+    if (ev.key !== "Escape") return;
+    if (!els.scheduleWalkTooltip || els.scheduleWalkTooltip.hidden) return;
+    closeScheduleWalkTooltip();
+  }
+
+  function wireScheduleWalkTooltip() {
+    initScheduleWalkTooltipText();
+    if (!els.scheduleWalkInfoBtn || !els.scheduleWalkTooltip) return;
+    els.scheduleWalkInfoBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleScheduleWalkTooltip();
+    });
+    document.addEventListener("pointerdown", onDocPointerCloseScheduleWalk, true);
+    window.addEventListener("keydown", onKeyCloseScheduleWalk);
+  }
+
   function setSheetTab(which) {
     const isMeet = which === "meetups";
+    const isVenue = which === "venue";
+    const isSchedule = which === "schedule";
+    if (!isSchedule) closeScheduleWalkTooltip();
     els.tabMeetups.setAttribute("aria-selected", isMeet ? "true" : "false");
-    els.tabVenue.setAttribute("aria-selected", !isMeet ? "true" : "false");
+    els.tabVenue.setAttribute("aria-selected", isVenue ? "true" : "false");
+    if (els.tabSchedule) els.tabSchedule.setAttribute("aria-selected", isSchedule ? "true" : "false");
     els.panelMeetups.hidden = !isMeet;
-    els.panelVenue.hidden = isMeet;
+    els.panelVenue.hidden = !isVenue;
+    if (els.panelSchedule) els.panelSchedule.hidden = !isSchedule;
   }
 
   function clampPanelPx(px) {
@@ -2039,8 +2682,15 @@
   function wireUi() {
     els.tabMeetups.addEventListener("click", () => setSheetTab("meetups"));
     els.tabVenue.addEventListener("click", () => setSheetTab("venue"));
+    if (els.tabSchedule) els.tabSchedule.addEventListener("click", () => setSheetTab("schedule"));
 
     els.poiSearch.addEventListener("input", () => renderPoiList());
+    if (els.scheduleSearch) els.scheduleSearch.addEventListener("input", () => renderScheduleTab());
+    if (els.scheduleSelectedOnly) els.scheduleSelectedOnly.addEventListener("change", () => renderScheduleTab());
+    if (els.scheduleDay) els.scheduleDay.addEventListener("change", () => renderScheduleTab());
+    if (els.scheduleStage) els.scheduleStage.addEventListener("change", () => renderScheduleTab());
+    if (els.scheduleGenre) els.scheduleGenre.addEventListener("change", () => renderScheduleTab());
+    wireScheduleWalkTooltip();
 
     const doCenter = () => {
       if (userMarker) map.flyTo(userMarker.getLatLng(), Math.max(map.getZoom(), 16), { duration: 0.5 });
@@ -2338,7 +2988,9 @@
     applyStoredPanelHeight();
     initMap();
     registerSw();
+    loadScheduleSelection();
     wireUi();
+    renderScheduleTab();
     setOnlineOfflineTitle();
     window.addEventListener("online", setOnlineOfflineTitle);
     window.addEventListener("offline", setOnlineOfflineTitle);
@@ -2355,6 +3007,7 @@
     startGeolocation();
     await tryConsumeHashImport();
     await loadFestivalPois();
+    await loadFestivalSchedule();
     if (map) map.invalidateSize();
   }
 

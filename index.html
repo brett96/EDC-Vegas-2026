@@ -60,7 +60,7 @@
         aria-label="Drag down to enlarge the map and shrink the list; drag up for more list space"
       ></div>
 
-      <section id="main-sheet" class="sheet" aria-label="Meetups and venue map">
+      <section id="main-sheet" class="sheet" aria-label="Meetups, venue map, and schedule">
         <nav class="sheet-tabs" role="tablist" aria-label="List and tools">
           <button type="button" class="sheet-tab" role="tab" id="tab-meetups" aria-controls="panel-meetups" aria-selected="true">
             <span class="sheet-tab-label">Meetups</span>
@@ -69,6 +69,10 @@
           <button type="button" class="sheet-tab" role="tab" id="tab-venue" aria-controls="panel-venue" aria-selected="false">
             <span class="sheet-tab-label">Venue map</span>
             <span class="sheet-tab-count" id="venue-count">—</span>
+          </button>
+          <button type="button" class="sheet-tab" role="tab" id="tab-schedule" aria-controls="panel-schedule" aria-selected="false">
+            <span class="sheet-tab-label">Schedule</span>
+            <span class="sheet-tab-count" id="schedule-count">0</span>
           </button>
         </nav>
 
@@ -99,6 +103,55 @@
           </div>
           <div id="cat-chips" class="cat-chips" role="group" aria-label="Filter by category"></div>
           <ul id="poi-list" class="pin-list poi-list" aria-live="polite"></ul>
+        </div>
+
+        <div id="panel-schedule" class="sheet-panel schedule-panel" role="tabpanel" aria-labelledby="tab-schedule" hidden>
+          <div class="schedule-toolbar">
+            <input
+              type="search"
+              id="schedule-search"
+              class="poi-search"
+              placeholder="Search artists, genre, or stage…"
+              autocomplete="off"
+              enterkeyhint="search"
+            />
+            <label class="schedule-toggle">
+              <input type="checkbox" id="schedule-selected-only" />
+              Saved only
+            </label>
+            <div class="schedule-walk-info" id="schedule-walk-info">
+              <button
+                type="button"
+                class="schedule-walk-info-btn"
+                id="schedule-walk-info-btn"
+                aria-expanded="false"
+                aria-controls="schedule-walk-tooltip"
+                title="Walking assumptions for Leave By"
+              >
+                ⓘ
+              </button>
+              <div id="schedule-walk-tooltip" class="schedule-walk-tooltip" role="tooltip" hidden>
+                <p class="schedule-walk-tooltip-title">Walking assumptions (Leave By)</p>
+                <p id="schedule-walk-tooltip-body" class="schedule-walk-tooltip-body"></p>
+              </div>
+            </div>
+          </div>
+          <div class="schedule-filters">
+            <select id="schedule-day" class="poi-cat" aria-label="Filter by day"></select>
+            <select id="schedule-stage" class="poi-cat" aria-label="Filter by stage"></select>
+            <select id="schedule-genre" class="poi-cat" aria-label="Filter by genre"></select>
+          </div>
+          <p id="schedule-conflict-summary" class="schedule-conflict-summary" hidden></p>
+          <div id="schedule-scroll" class="schedule-scroll">
+            <section class="schedule-section">
+              <h3 class="schedule-section-title">My itinerary</h3>
+              <ul id="schedule-itinerary-list" class="schedule-list" aria-live="polite"></ul>
+            </section>
+            <section class="schedule-section">
+              <h3 class="schedule-section-title">All sets</h3>
+              <ul id="schedule-set-list" class="schedule-list" aria-live="polite"></ul>
+            </section>
+          </div>
         </div>
 
         <p class="map-attribution">
