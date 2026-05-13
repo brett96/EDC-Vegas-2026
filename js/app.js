@@ -144,6 +144,7 @@
     btnImport: document.getElementById("btn-import"),
     btnCenterFloat: document.getElementById("btn-center-float"),
     btnEdcFloat: document.getElementById("btn-edc-float"),
+    installLink: document.getElementById("install-link"),
     compassToggleNav: document.getElementById("compass-toggle-nav"),
     splitter: document.getElementById("split-splitter"),
     mapStack: document.getElementById("map-stack"),
@@ -224,6 +225,8 @@
   /** @type {import("leaflet").TileLayer | null} */
   let navMapOnlineTiles = null;
   let navMapOnlineMode = false;
+  /** @type {any | null} */
+  let deferredInstallPrompt = null;
 
   function uid() {
     return crypto.randomUUID ? crypto.randomUUID() : "p-" + Date.now() + "-" + Math.random().toString(16).slice(2);
@@ -1422,6 +1425,24 @@
       els.btnEdcFloat.addEventListener("click", () => {
         if (!map) return;
         map.flyToBounds(MAP_BOUNDS.pad(0.08), { duration: 0.55 });
+      });
+    }
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      // Chromium on Android: capture the event so we can prompt on user gesture.
+      e.preventDefault();
+      deferredInstallPrompt = e;
+    });
+
+    if (els.installLink) {
+      els.installLink.addEventListener("click", async (e) => {
+        if (!deferredInstallPrompt) return; // Fall back to install.html via normal navigation
+        e.preventDefault();
+        try {
+          await deferredInstallPrompt.prompt();
+          await deferredInstallPrompt.userChoice;
+        } catch (_) {}
+        deferredInstallPrompt = null;
       });
     }
 
