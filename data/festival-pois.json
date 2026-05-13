@@ -1,1031 +1,215 @@
 {
-"version": 1,
-"mapImage": {
-"width": 1080,
-"height": 1350
-},
-"pois": [
-{
-"id": "stage_kinetic",
-"name": "kineticFIELD",
-"category": "stage",
-"u": 0.5,
-"v": 0.065
-},
-{
-"id": "stage_quantum",
-"name": "quantumVALLEY",
-"category": "stage",
-"u": 0.74,
-"v": 0.11
-},
-{
-"id": "stage_neon",
-"name": "neonGARDEN",
-"category": "stage",
-"u": 0.84,
-"v": 0.36
-},
-{
-"id": "stage_circuit",
-"name": "circuitGROUNDS",
-"category": "stage",
-"u": 0.76,
-"v": 0.78
-},
-{
-"id": "stage_bass",
-"name": "bassPOD",
-"category": "stage",
-"u": 0.5,
-"v": 0.89
-},
-{
-"id": "stage_waste",
-"name": "wasteLAND",
-"category": "stage",
-"u": 0.22,
-"v": 0.84
-},
-{
-"id": "stage_cosmic",
-"name": "cosmicMEADOW",
-"category": "stage",
-"u": 0.16,
-"v": 0.38
-},
-{
-"id": "stage_stereo",
-"name": "stereoBLOOM",
-"category": "stage",
-"u": 0.38,
-"v": 0.46
-},
-{
-"id": "stage_bionic",
-"name": "bionicJUNGLE",
-"category": "stage",
-"u": 0.24,
-"v": 0.14
-},
-{
-"id": "downtown",
-"name": "Downtown EDC",
-"category": "other",
-"u": 0.5,
-"v": 0.44
-},
-{
-"id": "rainbow_bazaar",
-"name": "Rainbow Bazaar",
-"category": "merchandise",
-"u": 0.49,
-"v": 0.45
-},
-{
-"id": "rainbow_road_n",
-"name": "Rainbow Road (north)",
-"category": "other",
-"u": 0.51,
-"v": 0.28
-},
-{
-"id": "rainbow_road_mid",
-"name": "Rainbow Road (mid)",
-"category": "other",
-"u": 0.51,
-"v": 0.52
-},
-{
-"id": "daisy_lane",
-"name": "Daisy Lane",
-"category": "other",
-"u": 0.48,
-"v": 0.22
-},
-{
-"id": "electric_ave",
-"name": "Electric Avenue",
-"category": "other",
-"u": 0.52,
-"v": 0.58
-},
-{
-"id": "power_path",
-"name": "Power Path",
-"category": "other",
-"u": 0.72,
-"v": 0.48
-},
-{
-"id": "memory_lane",
-"name": "Memory Lane",
-"category": "other",
-"u": 0.28,
-"v": 0.48
-},
-{
-"id": "nomads_alley",
-"name": "Nomads Alley",
-"category": "other",
-"u": 0.32,
-"v": 0.72
-},
-{
-"id": "bass_lane",
-"name": "Bass Lane",
-"category": "other",
-"u": 0.5,
-"v": 0.82
-},
-{
-"id": "kinetic_trail",
-"name": "Kinetic Trail",
-"category": "other",
-"u": 0.42,
-"v": 0.1
-},
-{
-"id": "art_bamboo",
-"name": "Bamboo Village",
-"category": "art_installation",
-"u": 0.2,
-"v": 0.82
-},
-{
-"id": "art_nomads",
-"name": "Nomads Land",
-"category": "art_installation",
-"u": 0.34,
-"v": 0.86
-},
-{
-"id": "art_pixel",
-"name": "Pixel Forest",
-"category": "art_installation",
-"u": 0.82,
-"v": 0.62
-},
-{
-"id": "art_car_beatbox",
-"name": "Beatbox Art Car",
-"category": "art_car",
-"u": 0.44,
-"v": 0.21
-},
-{
-"id": "art_car_1",
-"name": "Art Car (Daisy Lane)",
-"category": "art_car",
-"u": 0.56,
-"v": 0.2
-},
-{
-"id": "art_car_2",
-"name": "Art Car (Electric Ave)",
-"category": "art_car",
-"u": 0.6,
-"v": 0.6
-},
-{
-"id": "art_car_3",
-"name": "Art Car (Memory Lane)",
-"category": "art_car",
-"u": 0.26,
-"v": 0.55
-},
-{
-"id": "ride_century",
-"name": "VIP Century Wheel",
-"category": "ride",
-"u": 0.73,
-"v": 0.09
-},
-{
-"id": "ride_diamond",
-"name": "Diamond Wheel",
-"category": "ride",
-"u": 0.52,
-"v": 0.5
-},
-{
-"id": "ride_dreamland",
-"name": "Dreamland Ride",
-"category": "ride",
-"u": 0.49,
-"v": 0.43
-},
-{
-"id": "ride_vertigo",
-"name": "Vertigo",
-"category": "ride",
-"u": 0.27,
-"v": 0.12
-},
-{
-"id": "ride_super",
-"name": "Super Shot",
-"category": "ride",
-"u": 0.17,
-"v": 0.87
-},
-{
-"id": "ride_zipper",
-"name": "Zipper",
-"category": "ride",
-"u": 0.12,
-"v": 0.91
-},
-{
-"id": "gate_s",
-"name": "Entrance Gate S",
-"category": "entrance",
-"u": 0.54,
-"v": 0.035
-},
-{
-"id": "gate_cd",
-"name": "Entrance Gates C / D",
-"category": "entrance",
-"u": 0.06,
-"v": 0.38
-},
-{
-"id": "gate_p",
-"name": "Entrance Gate P",
-"category": "entrance",
-"u": 0.14,
-"v": 0.935
-},
-{
-"id": "aid_gate_s",
-"name": "First Aid (Gate S)",
-"category": "first_aid",
-"u": 0.56,
-"v": 0.048
-},
-{
-"id": "aid_gate_cd",
-"name": "First Aid (Gates C/D)",
-"category": "first_aid",
-"u": 0.09,
-"v": 0.36
-},
-{
-"id": "aid_circuit",
-"name": "First Aid (circuit area)",
-"category": "first_aid",
-"u": 0.79,
-"v": 0.76
-},
-{
-"id": "lock_gate_s",
-"name": "Lockers (Gate S)",
-"category": "locker",
-"u": 0.5,
-"v": 0.048
-},
-{
-"id": "lock_gate_cd",
-"name": "Lockers (Gates C/D)",
-"category": "locker",
-"u": 0.08,
-"v": 0.42
-},
-{
-"id": "info_cosmic",
-"name": "Info (cosmicMEADOW)",
-"category": "info",
-"u": 0.19,
-"v": 0.42
-},
-{
-"id": "info_bazaar",
-"name": "Info (Rainbow Bazaar)",
-"category": "info",
-"u": 0.46,
-"v": 0.44
-},
-{
-"id": "lost_found",
-"name": "Lost & Found",
-"category": "lost_found",
-"u": 0.51,
-"v": 0.46
-},
-{
-"id": "general_store",
-"name": "General Store",
-"category": "general_store",
-"u": 0.48,
-"v": 0.47
-},
-{
-"id": "ground_waste",
-"name": "Ground Control Oasis (wasteLAND)",
-"category": "ground_control",
-"u": 0.23,
-"v": 0.86
-},
-{
-"id": "ground_cosmic",
-"name": "Ground Control Oasis (cosmicMEADOW)",
-"category": "ground_control",
-"u": 0.14,
-"v": 0.44
-},
-{
-"id": "vip_kinetic",
-"name": "VIP Â· Kinetic",
-"category": "vip",
-"u": 0.47,
-"v": 0.09
-},
-{
-"id": "vip_quantum",
-"name": "VIP Â· Quantum",
-"category": "vip",
-"u": 0.71,
-"v": 0.14
-},
-{
-"id": "vip_neon",
-"name": "VIP Â· Neon",
-"category": "vip",
-"u": 0.8,
-"v": 0.33
-},
-{
-"id": "vip_circuit",
-"name": "VIP Â· Circuit",
-"category": "vip",
-"u": 0.73,
-"v": 0.74
-},
-{
-"id": "vip_bass",
-"name": "VIP Â· Bass",
-"category": "vip",
-"u": 0.47,
-"v": 0.85
-},
-{
-"id": "vip_waste",
-"name": "VIP Â· Waste",
-"category": "vip",
-"u": 0.19,
-"v": 0.81
-},
-{
-"id": "vip_cosmic",
-"name": "VIP Â· Cosmic",
-"category": "vip",
-"u": 0.14,
-"v": 0.35
-},
-{
-"id": "vip_barber",
-"name": "VIP Barber",
-"category": "vip_barber",
-"u": 0.68,
-"v": 0.13
-},
-{
-"id": "vip_skydeck",
-"name": "Marquee Skydeck",
-"category": "marquee_skydeck",
-"u": 0.66,
-"v": 0.11
-},
-{
-"id": "vip_concierge",
-"name": "VIP Concierge",
-"category": "vip_concierge",
-"u": 0.45,
-"v": 0.41
-},
-{
-"id": "vip_view_kinetic",
-"name": "VIP Viewing Deck Â· kineticFIELD",
-"category": "vip_viewing",
-"u": 0.52,
-"v": 0.095
-},
-{
-"id": "vip_water_neon",
-"name": "VIP Water Station Â· neonGARDEN",
-"category": "vip_water",
-"u": 0.81,
-"v": 0.34
-},
-{
-"id": "r_ga_kinetic",
-"name": "Restrooms (GA) Â· kinetic",
-"category": "restroom_ga",
-"u": 0.48,
-"v": 0.14
-},
-{
-"id": "r_gap_kinetic",
-"name": "Restrooms (GA+) Â· kinetic",
-"category": "restroom_ga_plus",
-"u": 0.52,
-"v": 0.14
-},
-{
-"id": "r_ada_kinetic",
-"name": "ADA / Accessible viewing Â· kinetic",
-"category": "restroom_ada",
-"u": 0.5,
-"v": 0.07
-},
-{
-"id": "r_vip_kinetic",
-"name": "VIP Restrooms Â· kinetic",
-"category": "restroom_vip",
-"u": 0.535,
-"v": 0.075
-},
-{
-"id": "r_ga_quantum",
-"name": "Restrooms (GA) Â· quantum",
-"category": "restroom_ga",
-"u": 0.74,
-"v": 0.18
-},
-{
-"id": "r_gap_quantum",
-"name": "Restrooms (GA+) Â· quantum",
-"category": "restroom_ga_plus",
-"u": 0.78,
-"v": 0.18
-},
-{
-"id": "r_ada_quantum",
-"name": "ADA / Accessible viewing Â· quantum",
-"category": "restroom_ada",
-"u": 0.76,
-"v": 0.11
-},
-{
-"id": "r_vip_quantum",
-"name": "VIP Restrooms Â· quantum",
-"category": "restroom_vip",
-"u": 0.795,
-"v": 0.115
-},
-{
-"id": "r_ga_neon",
-"name": "Restrooms (GA) Â· neon",
-"category": "restroom_ga",
-"u": 0.84,
-"v": 0.42
-},
-{
-"id": "r_gap_neon",
-"name": "Restrooms (GA+) Â· neon",
-"category": "restroom_ga_plus",
-"u": 0.88,
-"v": 0.42
-},
-{
-"id": "r_ada_neon",
-"name": "ADA / Accessible viewing Â· neon",
-"category": "restroom_ada",
-"u": 0.86,
-"v": 0.35
-},
-{
-"id": "r_vip_neon",
-"name": "VIP Restrooms Â· neon",
-"category": "restroom_vip",
-"u": 0.895,
-"v": 0.355
-},
-{
-"id": "r_ga_circuit",
-"name": "Restrooms (GA) Â· circuit",
-"category": "restroom_ga",
-"u": 0.76,
-"v": 0.84
-},
-{
-"id": "r_gap_circuit",
-"name": "Restrooms (GA+) Â· circuit",
-"category": "restroom_ga_plus",
-"u": 0.8,
-"v": 0.84
-},
-{
-"id": "r_ada_circuit",
-"name": "ADA / Accessible viewing Â· circuit",
-"category": "restroom_ada",
-"u": 0.78,
-"v": 0.77
-},
-{
-"id": "r_vip_circuit",
-"name": "VIP Restrooms Â· circuit",
-"category": "restroom_vip",
-"u": 0.815,
-"v": 0.775
-},
-{
-"id": "r_ga_bass",
-"name": "Restrooms (GA) Â· bass",
-"category": "restroom_ga",
-"u": 0.51,
-"v": 0.89
-},
-{
-"id": "r_gap_bass",
-"name": "Restrooms (GA+) Â· bass",
-"category": "restroom_ga_plus",
-"u": 0.55,
-"v": 0.89
-},
-{
-"id": "r_ada_bass",
-"name": "ADA / Accessible viewing Â· bass",
-"category": "restroom_ada",
-"u": 0.53,
-"v": 0.82
-},
-{
-"id": "r_vip_bass",
-"name": "VIP Restrooms Â· bass",
-"category": "restroom_vip",
-"u": 0.565,
-"v": 0.825
-},
-{
-"id": "r_ga_waste",
-"name": "Restrooms (GA) Â· waste",
-"category": "restroom_ga",
-"u": 0.23,
-"v": 0.84
-},
-{
-"id": "r_gap_waste",
-"name": "Restrooms (GA+) Â· waste",
-"category": "restroom_ga_plus",
-"u": 0.27,
-"v": 0.84
-},
-{
-"id": "r_ada_waste",
-"name": "ADA / Accessible viewing Â· waste",
-"category": "restroom_ada",
-"u": 0.25,
-"v": 0.77
-},
-{
-"id": "r_vip_waste",
-"name": "VIP Restrooms Â· waste",
-"category": "restroom_vip",
-"u": 0.285,
-"v": 0.775
-},
-{
-"id": "r_ga_cosmic",
-"name": "Restrooms (GA) Â· cosmic",
-"category": "restroom_ga",
-"u": 0.16,
-"v": 0.44
-},
-{
-"id": "r_gap_cosmic",
-"name": "Restrooms (GA+) Â· cosmic",
-"category": "restroom_ga_plus",
-"u": 0.2,
-"v": 0.44
-},
-{
-"id": "r_ada_cosmic",
-"name": "ADA / Accessible viewing Â· cosmic",
-"category": "restroom_ada",
-"u": 0.18,
-"v": 0.37
-},
-{
-"id": "r_vip_cosmic",
-"name": "VIP Restrooms Â· cosmic",
-"category": "restroom_vip",
-"u": 0.215,
-"v": 0.375
-},
-{
-"id": "r_ga_stereo",
-"name": "Restrooms (GA) Â· stereo",
-"category": "restroom_ga",
-"u": 0.38,
-"v": 0.52
-},
-{
-"id": "r_gap_stereo",
-"name": "Restrooms (GA+) Â· stereo",
-"category": "restroom_ga_plus",
-"u": 0.42,
-"v": 0.52
-},
-{
-"id": "r_ada_stereo",
-"name": "ADA / Accessible viewing Â· stereo",
-"category": "restroom_ada",
-"u": 0.4,
-"v": 0.45
-},
-{
-"id": "r_vip_stereo",
-"name": "VIP Restrooms Â· stereo",
-"category": "restroom_vip",
-"u": 0.435,
-"v": 0.455
-},
-{
-"id": "r_ga_bionic",
-"name": "Restrooms (GA) Â· bionic",
-"category": "restroom_ga",
-"u": 0.24,
-"v": 0.2
-},
-{
-"id": "r_gap_bionic",
-"name": "Restrooms (GA+) Â· bionic",
-"category": "restroom_ga_plus",
-"u": 0.28,
-"v": 0.2
-},
-{
-"id": "r_ada_bionic",
-"name": "ADA / Accessible viewing Â· bionic",
-"category": "restroom_ada",
-"u": 0.26,
-"v": 0.13
-},
-{
-"id": "r_vip_bionic",
-"name": "VIP Restrooms Â· bionic",
-"category": "restroom_vip",
-"u": 0.295,
-"v": 0.135
-},
-{
-"id": "r_ga_downtown",
-"name": "Restrooms (GA) Â· downtown",
-"category": "restroom_ga",
-"u": 0.44,
-"v": 0.51
-},
-{
-"id": "r_gap_downtown",
-"name": "Restrooms (GA+) Â· downtown",
-"category": "restroom_ga_plus",
-"u": 0.48,
-"v": 0.51
-},
-{
-"id": "r_ada_downtown",
-"name": "ADA / Accessible viewing Â· downtown",
-"category": "restroom_ada",
-"u": 0.46,
-"v": 0.44
-},
-{
-"id": "r_vip_downtown",
-"name": "VIP Restrooms Â· downtown",
-"category": "restroom_vip",
-"u": 0.495,
-"v": 0.445
-},
-{
-"id": "r_ga_gate_s",
-"name": "Restrooms (GA) Â· gate_s",
-"category": "restroom_ga",
-"u": 0.55,
-"v": 0.09
-},
-{
-"id": "r_gap_gate_s",
-"name": "Restrooms (GA+) Â· gate_s",
-"category": "restroom_ga_plus",
-"u": 0.59,
-"v": 0.09
-},
-{
-"id": "r_ada_gate_s",
-"name": "ADA / Accessible viewing Â· gate_s",
-"category": "restroom_ada",
-"u": 0.57,
-"v": 0.02
-},
-{
-"id": "r_vip_gate_s",
-"name": "VIP Restrooms Â· gate_s",
-"category": "restroom_vip",
-"u": 0.605,
-"v": 0.025
-},
-{
-"id": "r_ga_gate_cd",
-"name": "Restrooms (GA) Â· gate_cd",
-"category": "restroom_ga",
-"u": 0.08,
-"v": 0.43
-},
-{
-"id": "r_gap_gate_cd",
-"name": "Restrooms (GA+) Â· gate_cd",
-"category": "restroom_ga_plus",
-"u": 0.12,
-"v": 0.43
-},
-{
-"id": "r_ada_gate_cd",
-"name": "ADA / Accessible viewing Â· gate_cd",
-"category": "restroom_ada",
-"u": 0.1,
-"v": 0.36
-},
-{
-"id": "r_vip_gate_cd",
-"name": "VIP Restrooms Â· gate_cd",
-"category": "restroom_vip",
-"u": 0.135,
-"v": 0.365
-},
-{
-"id": "r_ga_gate_p",
-"name": "Restrooms (GA) Â· gate_p",
-"category": "restroom_ga",
-"u": 0.14,
-"v": 0.93
-},
-{
-"id": "r_gap_gate_p",
-"name": "Restrooms (GA+) Â· gate_p",
-"category": "restroom_ga_plus",
-"u": 0.18,
-"v": 0.93
-},
-{
-"id": "r_ada_gate_p",
-"name": "ADA / Accessible viewing Â· gate_p",
-"category": "restroom_ada",
-"u": 0.16,
-"v": 0.86
-},
-{
-"id": "r_vip_gate_p",
-"name": "VIP Restrooms Â· gate_p",
-"category": "restroom_vip",
-"u": 0.195,
-"v": 0.865
-},
-{
-"id": "water_stereo",
-"name": "Water Station Â· stereoBLOOM",
-"category": "water_station",
-"u": 0.36,
-"v": 0.51
-},
-{
-"id": "water_neon",
-"name": "Water Station Â· neonGARDEN",
-"category": "water_station",
-"u": 0.8,
-"v": 0.4
-},
-{
-"id": "water_bass",
-"name": "Water Station Â· bassPOD",
-"category": "water_station",
-"u": 0.55,
-"v": 0.88
-},
-{
-"id": "water_kinetic",
-"name": "Water Station Â· kineticFIELD",
-"category": "water_station",
-"u": 0.44,
-"v": 0.12
-},
-{
-"id": "water_downtown",
-"name": "Water Station Â· Downtown",
-"category": "water_station",
-"u": 0.54,
-"v": 0.5
-},
-{
-"id": "water_cosmic",
-"name": "Water Station Â· cosmicMEADOW",
-"category": "water_station",
-"u": 0.2,
-"v": 0.45
-},
-{
-"id": "food_0",
-"name": "Kinetic vendors",
-"category": "food_drink",
-"u": 0.58,
-"v": 0.13
-},
-{
-"id": "food_1",
-"name": "Quantum vendors",
-"category": "food_drink",
-"u": 0.78,
-"v": 0.18
-},
-{
-"id": "food_2",
-"name": "Neon vendors",
-"category": "food_drink",
-"u": 0.87,
-"v": 0.42
-},
-{
-"id": "food_3",
-"name": "Circuit vendors",
-"category": "food_drink",
-"u": 0.72,
-"v": 0.74
-},
-{
-"id": "food_4",
-"name": "Bass vendors",
-"category": "food_drink",
-"u": 0.58,
-"v": 0.87
-},
-{
-"id": "food_5",
-"name": "Waste vendors",
-"category": "food_drink",
-"u": 0.28,
-"v": 0.86
-},
-{
-"id": "food_6",
-"name": "Cosmic vendors",
-"category": "food_drink",
-"u": 0.22,
-"v": 0.44
-},
-{
-"id": "food_7",
-"name": "Downtown food court",
-"category": "food_drink",
-"u": 0.47,
-"v": 0.42
-},
-{
-"id": "food_8",
-"name": "Bazaar bites",
-"category": "food_drink",
-"u": 0.52,
-"v": 0.46
-},
-{
-"id": "food_9",
-"name": "Rainbow Road snacks",
-"category": "food_drink",
-"u": 0.49,
-"v": 0.35
-},
-{
-"id": "food_10",
-"name": "Electric Ave bar",
-"category": "food_drink",
-"u": 0.58,
-"v": 0.59
-},
-{
-"id": "food_11",
-"name": "Memory Lane bar",
-"category": "food_drink",
-"u": 0.24,
-"v": 0.52
-},
-{
-"id": "food_12",
-"name": "Daisy Lane bites",
-"category": "food_drink",
-"u": 0.42,
-"v": 0.23
-},
-{
-"id": "food_13",
-"name": "Power Path bar",
-"category": "food_drink",
-"u": 0.74,
-"v": 0.52
-},
-{
-"id": "merch_main",
-"name": "Merchandise (main)",
-"category": "merchandise",
-"u": 0.5,
-"v": 0.445
-},
-{
-"id": "kandi_1",
-"name": "Kandi Station",
-"category": "kandi_station",
-"u": 0.44,
-"v": 0.46
-},
-{
-"id": "trinket_1",
-"name": "Trinket Trade",
-"category": "trinket_trade",
-"u": 0.56,
-"v": 0.46
-},
-{
-"id": "photo_1",
-"name": "Photo Op Â· Downtown",
-"category": "photo_op",
-"u": 0.53,
-"v": 0.43
-},
-{
-"id": "photo_2",
-"name": "Photo Op Â· kineticFIELD",
-"category": "photo_op",
-"u": 0.46,
-"v": 0.08
-},
-{
-"id": "charge_1",
-"name": "Charging Station Â· Downtown",
-"category": "charging_station",
-"u": 0.48,
-"v": 0.49
-},
-{
-"id": "charge_2",
-"name": "Charging Station Â· cosmicMEADOW",
-"category": "charging_station",
-"u": 0.12,
-"v": 0.43
-},
-{
-"id": "charge_3",
-"name": "Charging Station Â· neonGARDEN",
-"category": "charging_station",
-"u": 0.88,
-"v": 0.38
-},
-{
-"id": "cash_1",
-"name": "Cash Exchange Â· Gates C/D",
-"category": "cash_exchange",
-"u": 0.11,
-"v": 0.44
-},
-{
-"id": "cash_2",
-"name": "Cash Exchange Â· Downtown",
-"category": "cash_exchange",
-"u": 0.51,
-"v": 0.48
-},
-{
-"id": "wifi_1",
-"name": "Wi-Fi / connectivity Â· Downtown",
-"category": "wifi",
-"u": 0.49,
-"v": 0.435
-},
-{
-"id": "wifi_2",
-"name": "Wi-Fi Â· kineticFIELD",
-"category": "wifi",
-"u": 0.55,
-"v": 0.09
-},
-{
-"id": "passport_1",
-"name": "Insomniac Passport",
-"category": "passport",
-"u": 0.52,
-"v": 0.455
-},
-{
-"id": "consciousness",
-"name": "Consciousness Group",
-"category": "consciousness_group",
-"u": 0.47,
-"v": 0.5
-},
-{
-"id": "heli",
-"name": "Maverick Helicopters (info point)",
-"category": "other",
-"u": 0.6,
-"v": 0.055
-}
-]
+  "version": 2,
+  "source": "assets/edc_map.jpg",
+  "mapImage": { "width": 1080, "height": 1350 },
+  "_notes": "u (0..1) = horizontal on the artwork (0 left, 1 right). v (0..1) = vertical on the artwork (0 top, 1 bottom). The runtime rotates these by ARTWORK_ROTATION_DEG (90° CCW for the EDC LVMS 2026 layout) before mapping into LVMS lat/lng.",
+  "pois": [
+    { "id": "stage_kinetic",  "name": "kineticFIELD",   "category": "stage", "u": 0.50, "v": 0.13 },
+    { "id": "stage_quantum",  "name": "quantumVALLEY",  "category": "stage", "u": 0.66, "v": 0.26 },
+    { "id": "stage_bionic",   "name": "bionicJUNGLE",   "category": "stage", "u": 0.17, "v": 0.20 },
+    { "id": "stage_stereo",   "name": "stereoBLOOM",    "category": "stage", "u": 0.31, "v": 0.30 },
+    { "id": "stage_cosmic",   "name": "cosmicMEADOW",   "category": "stage", "u": 0.13, "v": 0.45 },
+    { "id": "stage_neon",     "name": "neonGARDEN",     "category": "stage", "u": 0.67, "v": 0.47 },
+    { "id": "stage_bass",     "name": "bassPOD",        "category": "stage", "u": 0.49, "v": 0.78 },
+    { "id": "stage_circuit",  "name": "circuitGROUNDS", "category": "stage", "u": 0.64, "v": 0.81 },
+    { "id": "stage_waste",    "name": "wasteLAND",      "category": "stage", "u": 0.18, "v": 0.74 },
+
+    { "id": "downtown",        "name": "Downtown EDC",         "category": "other",       "u": 0.44, "v": 0.55 },
+    { "id": "rainbow_bazaar",  "name": "Rainbow Bazaar",       "category": "merchandise", "u": 0.46, "v": 0.42 },
+    { "id": "camp_edc",        "name": "Camp EDC",             "category": "other",       "u": 0.08, "v": 0.58 },
+
+    { "id": "rainbow_road_n",   "name": "Rainbow Road (north)", "category": "other", "u": 0.50, "v": 0.34 },
+    { "id": "rainbow_road_mid", "name": "Rainbow Road (mid)",   "category": "other", "u": 0.50, "v": 0.50 },
+    { "id": "rainbow_road_s",   "name": "Rainbow Road (south)", "category": "other", "u": 0.50, "v": 0.66 },
+    { "id": "daisy_lane",       "name": "Daisy Lane",           "category": "other", "u": 0.50, "v": 0.18 },
+    { "id": "daisy_fields",     "name": "Daisy Fields",         "category": "other", "u": 0.40, "v": 0.21 },
+    { "id": "kinetic_trail",    "name": "Kinetic Trail",        "category": "other", "u": 0.42, "v": 0.16 },
+    { "id": "electric_ave",     "name": "Electric Avenue",      "category": "other", "u": 0.50, "v": 0.62 },
+    { "id": "power_path",       "name": "Power Path",           "category": "other", "u": 0.62, "v": 0.46 },
+    { "id": "memory_lane",      "name": "Memory Lane",          "category": "other", "u": 0.31, "v": 0.46 },
+    { "id": "nomads_alley",     "name": "Nomads Alley",         "category": "other", "u": 0.25, "v": 0.63 },
+    { "id": "bass_lane",        "name": "Bass Lane",            "category": "other", "u": 0.50, "v": 0.70 },
+
+    { "id": "gate_s",  "name": "Entrance Gate S",       "category": "entrance", "u": 0.86, "v": 0.13 },
+    { "id": "gate_cd", "name": "Entrance Gates C / D",  "category": "entrance", "u": 0.05, "v": 0.42 },
+    { "id": "gate_p",  "name": "Entrance Gate P",       "category": "entrance", "u": 0.08, "v": 0.88 },
+
+    { "id": "art_bamboo",  "name": "Bamboo Village",          "category": "art_installation", "u": 0.18, "v": 0.84 },
+    { "id": "art_nomads",  "name": "Nomads Land",             "category": "art_installation", "u": 0.30, "v": 0.78 },
+    { "id": "art_pixel",   "name": "Pixel Forest",            "category": "art_installation", "u": 0.74, "v": 0.65 },
+    { "id": "art_casa",    "name": "Casa Bacardi",            "category": "art_installation", "u": 0.30, "v": 0.21 },
+    { "id": "art_temple",  "name": "Temple of Daybreak",      "category": "art_installation", "u": 0.55, "v": 0.45 },
+
+    { "id": "art_car_beatbox", "name": "Beatbox Art Car",         "category": "art_car", "u": 0.43, "v": 0.21 },
+    { "id": "art_car_daisy",   "name": "Art Car · Daisy Lane",    "category": "art_car", "u": 0.55, "v": 0.20 },
+    { "id": "art_car_electric","name": "Art Car · Electric Ave",  "category": "art_car", "u": 0.58, "v": 0.62 },
+    { "id": "art_car_memory",  "name": "Art Car · Memory Lane",   "category": "art_car", "u": 0.28, "v": 0.55 },
+    { "id": "art_car_bass",    "name": "Art Car · Bass Lane",     "category": "art_car", "u": 0.45, "v": 0.71 },
+
+    { "id": "ride_century",   "name": "VIP Century Wheel",   "category": "ride", "u": 0.78, "v": 0.12 },
+    { "id": "ride_diamond",   "name": "Diamond Wheel",        "category": "ride", "u": 0.51, "v": 0.55 },
+    { "id": "ride_dreamland", "name": "Dreamland Ride",       "category": "ride", "u": 0.48, "v": 0.43 },
+    { "id": "ride_vertigo",   "name": "Vertigo",              "category": "ride", "u": 0.27, "v": 0.18 },
+    { "id": "ride_super",     "name": "Super Shot",           "category": "ride", "u": 0.17, "v": 0.86 },
+    { "id": "ride_zipper",    "name": "Zipper",               "category": "ride", "u": 0.13, "v": 0.89 },
+
+    { "id": "aid_gate_s",  "name": "First Aid · Gate S",     "category": "first_aid", "u": 0.83, "v": 0.16 },
+    { "id": "aid_gate_cd", "name": "First Aid · Gates C / D","category": "first_aid", "u": 0.07, "v": 0.40 },
+    { "id": "aid_gate_p",  "name": "First Aid · Gate P",     "category": "first_aid", "u": 0.10, "v": 0.86 },
+    { "id": "aid_circuit", "name": "First Aid · circuit area","category": "first_aid", "u": 0.66, "v": 0.78 },
+    { "id": "aid_waste",   "name": "First Aid · wasteLAND",  "category": "first_aid", "u": 0.20, "v": 0.71 },
+
+    { "id": "lock_gate_s",  "name": "Lockers · Gate S",     "category": "locker", "u": 0.81, "v": 0.18 },
+    { "id": "lock_gate_cd", "name": "Lockers · Gates C / D","category": "locker", "u": 0.07, "v": 0.45 },
+    { "id": "lock_gate_p",  "name": "Lockers · Gate P",     "category": "locker", "u": 0.11, "v": 0.83 },
+
+    { "id": "info_cosmic",   "name": "Info · cosmicMEADOW",  "category": "info", "u": 0.16, "v": 0.46 },
+    { "id": "info_bazaar",   "name": "Info · Rainbow Bazaar","category": "info", "u": 0.46, "v": 0.43 },
+    { "id": "info_downtown", "name": "Info · Downtown",      "category": "info", "u": 0.45, "v": 0.55 },
+
+    { "id": "lost_found",   "name": "Lost & Found",        "category": "lost_found",   "u": 0.47, "v": 0.46 },
+    { "id": "general_store","name": "General Store",       "category": "general_store","u": 0.43, "v": 0.47 },
+
+    { "id": "ground_waste", "name": "Ground Control Oasis · wasteLAND", "category": "ground_control", "u": 0.21, "v": 0.74 },
+    { "id": "ground_cosmic","name": "Ground Control Oasis · cosmicMEADOW", "category": "ground_control", "u": 0.15, "v": 0.42 },
+    { "id": "ground_neon",  "name": "Ground Control Oasis · neonGARDEN", "category": "ground_control", "u": 0.66, "v": 0.50 },
+
+    { "id": "vip_kinetic", "name": "VIP · kineticFIELD",  "category": "vip", "u": 0.47, "v": 0.10 },
+    { "id": "vip_quantum", "name": "VIP · quantumVALLEY", "category": "vip", "u": 0.69, "v": 0.24 },
+    { "id": "vip_neon",    "name": "VIP · neonGARDEN",    "category": "vip", "u": 0.70, "v": 0.46 },
+    { "id": "vip_circuit", "name": "VIP · circuitGROUNDS","category": "vip", "u": 0.66, "v": 0.80 },
+    { "id": "vip_bass",    "name": "VIP · bassPOD",       "category": "vip", "u": 0.46, "v": 0.80 },
+    { "id": "vip_waste",   "name": "VIP · wasteLAND",     "category": "vip", "u": 0.16, "v": 0.72 },
+    { "id": "vip_cosmic",  "name": "VIP · cosmicMEADOW",  "category": "vip", "u": 0.11, "v": 0.43 },
+    { "id": "vip_stereo",  "name": "VIP · stereoBLOOM",   "category": "vip", "u": 0.30, "v": 0.32 },
+    { "id": "vip_bionic",  "name": "VIP · bionicJUNGLE",  "category": "vip", "u": 0.16, "v": 0.18 },
+
+    { "id": "vip_barber",     "name": "VIP Barber",                "category": "vip_barber",     "u": 0.68, "v": 0.13 },
+    { "id": "vip_skydeck",    "name": "Marquee Skydeck",           "category": "marquee_skydeck","u": 0.66, "v": 0.11 },
+    { "id": "vip_concierge",  "name": "VIP Concierge",             "category": "vip_concierge",  "u": 0.45, "v": 0.41 },
+    { "id": "vip_view_kinetic","name": "VIP Viewing Deck · kineticFIELD","category": "vip_viewing","u": 0.52, "v": 0.11 },
+    { "id": "vip_view_neon",   "name": "VIP Viewing Deck · neonGARDEN", "category": "vip_viewing","u": 0.71, "v": 0.49 },
+    { "id": "vip_water_neon",  "name": "VIP Water Station · neonGARDEN","category": "vip_water","u": 0.69, "v": 0.50 },
+
+    { "id": "r_ga_kinetic",   "name": "Restrooms (GA) · kineticFIELD",     "category": "restroom_ga",      "u": 0.46, "v": 0.16 },
+    { "id": "r_gap_kinetic",  "name": "Restrooms (GA+) · kineticFIELD",    "category": "restroom_ga_plus", "u": 0.54, "v": 0.16 },
+    { "id": "r_ada_kinetic",  "name": "ADA / Accessible · kineticFIELD",   "category": "restroom_ada",     "u": 0.50, "v": 0.10 },
+    { "id": "r_vip_kinetic",  "name": "VIP Restrooms · kineticFIELD",      "category": "restroom_vip",     "u": 0.48, "v": 0.09 },
+
+    { "id": "r_ga_quantum",   "name": "Restrooms (GA) · quantumVALLEY",    "category": "restroom_ga",      "u": 0.66, "v": 0.30 },
+    { "id": "r_gap_quantum",  "name": "Restrooms (GA+) · quantumVALLEY",   "category": "restroom_ga_plus", "u": 0.69, "v": 0.30 },
+    { "id": "r_ada_quantum",  "name": "ADA / Accessible · quantumVALLEY",  "category": "restroom_ada",     "u": 0.66, "v": 0.22 },
+    { "id": "r_vip_quantum",  "name": "VIP Restrooms · quantumVALLEY",     "category": "restroom_vip",     "u": 0.70, "v": 0.23 },
+
+    { "id": "r_ga_neon",   "name": "Restrooms (GA) · neonGARDEN",     "category": "restroom_ga",      "u": 0.66, "v": 0.51 },
+    { "id": "r_gap_neon",  "name": "Restrooms (GA+) · neonGARDEN",    "category": "restroom_ga_plus", "u": 0.70, "v": 0.51 },
+    { "id": "r_ada_neon",  "name": "ADA / Accessible · neonGARDEN",   "category": "restroom_ada",     "u": 0.67, "v": 0.43 },
+    { "id": "r_vip_neon",  "name": "VIP Restrooms · neonGARDEN",      "category": "restroom_vip",     "u": 0.71, "v": 0.44 },
+
+    { "id": "r_ga_circuit",  "name": "Restrooms (GA) · circuitGROUNDS",   "category": "restroom_ga",      "u": 0.62, "v": 0.84 },
+    { "id": "r_gap_circuit", "name": "Restrooms (GA+) · circuitGROUNDS",  "category": "restroom_ga_plus", "u": 0.66, "v": 0.84 },
+    { "id": "r_ada_circuit", "name": "ADA / Accessible · circuitGROUNDS", "category": "restroom_ada",     "u": 0.65, "v": 0.78 },
+    { "id": "r_vip_circuit", "name": "VIP Restrooms · circuitGROUNDS",    "category": "restroom_vip",     "u": 0.68, "v": 0.79 },
+
+    { "id": "r_ga_bass",  "name": "Restrooms (GA) · bassPOD",     "category": "restroom_ga",      "u": 0.46, "v": 0.81 },
+    { "id": "r_gap_bass", "name": "Restrooms (GA+) · bassPOD",    "category": "restroom_ga_plus", "u": 0.52, "v": 0.81 },
+    { "id": "r_ada_bass", "name": "ADA / Accessible · bassPOD",   "category": "restroom_ada",     "u": 0.49, "v": 0.74 },
+    { "id": "r_vip_bass", "name": "VIP Restrooms · bassPOD",      "category": "restroom_vip",     "u": 0.44, "v": 0.79 },
+
+    { "id": "r_ga_waste",  "name": "Restrooms (GA) · wasteLAND",     "category": "restroom_ga",      "u": 0.18, "v": 0.77 },
+    { "id": "r_gap_waste", "name": "Restrooms (GA+) · wasteLAND",    "category": "restroom_ga_plus", "u": 0.21, "v": 0.77 },
+    { "id": "r_ada_waste", "name": "ADA / Accessible · wasteLAND",   "category": "restroom_ada",     "u": 0.20, "v": 0.71 },
+    { "id": "r_vip_waste", "name": "VIP Restrooms · wasteLAND",      "category": "restroom_vip",     "u": 0.15, "v": 0.72 },
+
+    { "id": "r_ga_cosmic",  "name": "Restrooms (GA) · cosmicMEADOW",     "category": "restroom_ga",      "u": 0.13, "v": 0.49 },
+    { "id": "r_gap_cosmic", "name": "Restrooms (GA+) · cosmicMEADOW",    "category": "restroom_ga_plus", "u": 0.16, "v": 0.49 },
+    { "id": "r_ada_cosmic", "name": "ADA / Accessible · cosmicMEADOW",   "category": "restroom_ada",     "u": 0.13, "v": 0.41 },
+    { "id": "r_vip_cosmic", "name": "VIP Restrooms · cosmicMEADOW",      "category": "restroom_vip",     "u": 0.10, "v": 0.42 },
+
+    { "id": "r_ga_stereo",  "name": "Restrooms (GA) · stereoBLOOM",     "category": "restroom_ga",      "u": 0.30, "v": 0.34 },
+    { "id": "r_gap_stereo", "name": "Restrooms (GA+) · stereoBLOOM",    "category": "restroom_ga_plus", "u": 0.34, "v": 0.34 },
+    { "id": "r_ada_stereo", "name": "ADA / Accessible · stereoBLOOM",   "category": "restroom_ada",     "u": 0.31, "v": 0.27 },
+    { "id": "r_vip_stereo", "name": "VIP Restrooms · stereoBLOOM",      "category": "restroom_vip",     "u": 0.34, "v": 0.27 },
+
+    { "id": "r_ga_bionic",  "name": "Restrooms (GA) · bionicJUNGLE",     "category": "restroom_ga",      "u": 0.16, "v": 0.23 },
+    { "id": "r_gap_bionic", "name": "Restrooms (GA+) · bionicJUNGLE",    "category": "restroom_ga_plus", "u": 0.20, "v": 0.23 },
+    { "id": "r_ada_bionic", "name": "ADA / Accessible · bionicJUNGLE",   "category": "restroom_ada",     "u": 0.16, "v": 0.16 },
+    { "id": "r_vip_bionic", "name": "VIP Restrooms · bionicJUNGLE",      "category": "restroom_vip",     "u": 0.20, "v": 0.16 },
+
+    { "id": "r_ga_downtown",  "name": "Restrooms (GA) · Downtown",     "category": "restroom_ga",      "u": 0.42, "v": 0.58 },
+    { "id": "r_gap_downtown", "name": "Restrooms (GA+) · Downtown",    "category": "restroom_ga_plus", "u": 0.46, "v": 0.58 },
+    { "id": "r_ada_downtown", "name": "ADA / Accessible · Downtown",   "category": "restroom_ada",     "u": 0.44, "v": 0.51 },
+    { "id": "r_vip_downtown", "name": "VIP Restrooms · Downtown",      "category": "restroom_vip",     "u": 0.48, "v": 0.52 },
+
+    { "id": "r_ga_gate_s",  "name": "Restrooms (GA) · Gate S",     "category": "restroom_ga",      "u": 0.83, "v": 0.20 },
+    { "id": "r_gap_gate_s", "name": "Restrooms (GA+) · Gate S",    "category": "restroom_ga_plus", "u": 0.86, "v": 0.20 },
+    { "id": "r_ada_gate_s", "name": "ADA / Accessible · Gate S",   "category": "restroom_ada",     "u": 0.84, "v": 0.13 },
+    { "id": "r_vip_gate_s", "name": "VIP Restrooms · Gate S",      "category": "restroom_vip",     "u": 0.87, "v": 0.13 },
+
+    { "id": "r_ga_gate_cd",  "name": "Restrooms (GA) · Gates C/D",     "category": "restroom_ga",      "u": 0.07, "v": 0.46 },
+    { "id": "r_gap_gate_cd", "name": "Restrooms (GA+) · Gates C/D",    "category": "restroom_ga_plus", "u": 0.10, "v": 0.46 },
+    { "id": "r_ada_gate_cd", "name": "ADA / Accessible · Gates C/D",   "category": "restroom_ada",     "u": 0.07, "v": 0.39 },
+    { "id": "r_vip_gate_cd", "name": "VIP Restrooms · Gates C/D",      "category": "restroom_vip",     "u": 0.10, "v": 0.39 },
+
+    { "id": "r_ga_gate_p",  "name": "Restrooms (GA) · Gate P",     "category": "restroom_ga",      "u": 0.08, "v": 0.91 },
+    { "id": "r_gap_gate_p", "name": "Restrooms (GA+) · Gate P",    "category": "restroom_ga_plus", "u": 0.12, "v": 0.91 },
+    { "id": "r_ada_gate_p", "name": "ADA / Accessible · Gate P",   "category": "restroom_ada",     "u": 0.08, "v": 0.84 },
+    { "id": "r_vip_gate_p", "name": "VIP Restrooms · Gate P",      "category": "restroom_vip",     "u": 0.12, "v": 0.84 },
+
+    { "id": "water_kinetic",  "name": "Water Station · kineticFIELD",  "category": "water_station", "u": 0.45, "v": 0.14 },
+    { "id": "water_quantum",  "name": "Water Station · quantumVALLEY", "category": "water_station", "u": 0.64, "v": 0.28 },
+    { "id": "water_neon",     "name": "Water Station · neonGARDEN",    "category": "water_station", "u": 0.65, "v": 0.49 },
+    { "id": "water_circuit",  "name": "Water Station · circuitGROUNDS","category": "water_station", "u": 0.62, "v": 0.82 },
+    { "id": "water_bass",     "name": "Water Station · bassPOD",       "category": "water_station", "u": 0.52, "v": 0.79 },
+    { "id": "water_waste",    "name": "Water Station · wasteLAND",     "category": "water_station", "u": 0.20, "v": 0.75 },
+    { "id": "water_cosmic",   "name": "Water Station · cosmicMEADOW",  "category": "water_station", "u": 0.15, "v": 0.46 },
+    { "id": "water_stereo",   "name": "Water Station · stereoBLOOM",   "category": "water_station", "u": 0.32, "v": 0.32 },
+    { "id": "water_bionic",   "name": "Water Station · bionicJUNGLE",  "category": "water_station", "u": 0.18, "v": 0.22 },
+    { "id": "water_downtown", "name": "Water Station · Downtown",      "category": "water_station", "u": 0.46, "v": 0.54 },
+
+    { "id": "food_kinetic",  "name": "Food vendors · kineticFIELD",  "category": "food_drink", "u": 0.55, "v": 0.14 },
+    { "id": "food_quantum",  "name": "Food vendors · quantumVALLEY", "category": "food_drink", "u": 0.69, "v": 0.27 },
+    { "id": "food_neon",     "name": "Food vendors · neonGARDEN",    "category": "food_drink", "u": 0.70, "v": 0.47 },
+    { "id": "food_circuit",  "name": "Food vendors · circuitGROUNDS","category": "food_drink", "u": 0.67, "v": 0.81 },
+    { "id": "food_bass",     "name": "Food vendors · bassPOD",       "category": "food_drink", "u": 0.46, "v": 0.81 },
+    { "id": "food_waste",    "name": "Food vendors · wasteLAND",     "category": "food_drink", "u": 0.21, "v": 0.71 },
+    { "id": "food_cosmic",   "name": "Food vendors · cosmicMEADOW",  "category": "food_drink", "u": 0.16, "v": 0.43 },
+    { "id": "food_stereo",   "name": "Food vendors · stereoBLOOM",   "category": "food_drink", "u": 0.34, "v": 0.30 },
+    { "id": "food_bionic",   "name": "Food vendors · bionicJUNGLE",  "category": "food_drink", "u": 0.20, "v": 0.20 },
+    { "id": "food_downtown", "name": "Downtown food court",          "category": "food_drink", "u": 0.43, "v": 0.50 },
+    { "id": "food_bazaar",   "name": "Bazaar bites",                 "category": "food_drink", "u": 0.45, "v": 0.44 },
+    { "id": "food_rainbow",  "name": "Rainbow Road snacks",          "category": "food_drink", "u": 0.50, "v": 0.38 },
+    { "id": "food_electric", "name": "Electric Avenue bar",          "category": "food_drink", "u": 0.55, "v": 0.62 },
+    { "id": "food_memory",   "name": "Memory Lane bar",              "category": "food_drink", "u": 0.30, "v": 0.50 },
+    { "id": "food_daisy",    "name": "Daisy Lane bites",             "category": "food_drink", "u": 0.42, "v": 0.20 },
+    { "id": "food_power",    "name": "Power Path bar",               "category": "food_drink", "u": 0.62, "v": 0.52 },
+    { "id": "food_nomads",   "name": "Nomads Alley eats",            "category": "food_drink", "u": 0.27, "v": 0.66 },
+    { "id": "food_bass_lane","name": "Bass Lane bar",                "category": "food_drink", "u": 0.50, "v": 0.68 },
+
+    { "id": "merch_main",  "name": "Merchandise (main)",  "category": "merchandise",   "u": 0.50, "v": 0.44 },
+    { "id": "kandi_1",     "name": "Kandi Station",       "category": "kandi_station", "u": 0.42, "v": 0.46 },
+    { "id": "trinket_1",   "name": "Trinket Trade",       "category": "trinket_trade", "u": 0.50, "v": 0.46 },
+
+    { "id": "photo_downtown", "name": "Photo Op · Downtown",        "category": "photo_op", "u": 0.51, "v": 0.50 },
+    { "id": "photo_kinetic",  "name": "Photo Op · kineticFIELD",    "category": "photo_op", "u": 0.46, "v": 0.11 },
+    { "id": "photo_neon",     "name": "Photo Op · neonGARDEN",      "category": "photo_op", "u": 0.66, "v": 0.50 },
+    { "id": "photo_waste",    "name": "Photo Op · wasteLAND",       "category": "photo_op", "u": 0.20, "v": 0.76 },
+
+    { "id": "charge_downtown","name": "Charging · Downtown",     "category": "charging_station", "u": 0.45, "v": 0.49 },
+    { "id": "charge_cosmic",  "name": "Charging · cosmicMEADOW", "category": "charging_station", "u": 0.13, "v": 0.44 },
+    { "id": "charge_neon",    "name": "Charging · neonGARDEN",   "category": "charging_station", "u": 0.69, "v": 0.46 },
+    { "id": "charge_waste",   "name": "Charging · wasteLAND",    "category": "charging_station", "u": 0.19, "v": 0.73 },
+
+    { "id": "cash_gate_cd",  "name": "Cash Exchange · Gates C/D", "category": "cash_exchange", "u": 0.09, "v": 0.44 },
+    { "id": "cash_downtown", "name": "Cash Exchange · Downtown",  "category": "cash_exchange", "u": 0.48, "v": 0.48 },
+    { "id": "cash_gate_s",   "name": "Cash Exchange · Gate S",    "category": "cash_exchange", "u": 0.84, "v": 0.18 },
+
+    { "id": "wifi_downtown",  "name": "Wi-Fi · Downtown",       "category": "wifi", "u": 0.47, "v": 0.43 },
+    { "id": "wifi_kinetic",   "name": "Wi-Fi · kineticFIELD",   "category": "wifi", "u": 0.52, "v": 0.13 },
+
+    { "id": "passport_1",    "name": "Insomniac Passport",   "category": "passport",            "u": 0.51, "v": 0.45 },
+    { "id": "consciousness", "name": "Consciousness Group",  "category": "consciousness_group", "u": 0.48, "v": 0.50 },
+
+    { "id": "heli", "name": "Maverick Helicopters (info point)", "category": "other", "u": 0.65, "v": 0.10 }
+  ]
 }

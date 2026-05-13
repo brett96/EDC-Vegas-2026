@@ -22,6 +22,27 @@
     [36.298, -114.985]
   );
 
+  /**
+   * Rotation of the official EDC festival-map artwork relative to the real
+   * world. The 2026 artwork (assets/edc_map.jpg) is portrait-shaped while the
+   * LVMS infield is landscape-shaped — Insomniac rotates the venue artwork so
+   * it fits a portrait poster.
+   *
+   * ARTWORK_ROTATION_DEG = how many degrees the artwork has been rotated
+   * counter-clockwise from a true north-up orientation.
+   *
+   *   0   → artwork is north-up (top = North)
+   *   90  → top of artwork = East   (default for EDC LVMS 2026)
+   *   180 → top of artwork = South  (artwork is upside-down)
+   *   270 → top of artwork = West
+   *
+   * This matches the 2026 layout where kineticFIELD sits near the top of the
+   * artwork but on the eastern side of the LVMS infield, with Camp EDC and
+   * the dragstrip area falling on the artwork's left edge (true north).
+   * If a future map flips the orientation, only this constant needs to change.
+   */
+  const ARTWORK_ROTATION_DEG = 90;
+
   const PIN_COLORS = ["#ff2dbe", "#00f5ff", "#39ff14", "#ffd400", "#c86bff", "#ff6b35", "#ffffff"];
 
   const CATEGORY_LABELS = {
@@ -167,13 +188,45 @@
     return crypto.randomUUID ? crypto.randomUUID() : "p-" + Date.now() + "-" + Math.random().toString(16).slice(2);
   }
 
+  /**
+   * Convert artwork-frame (u, v) — origin at the artwork's top-left, both in
+   * [0, 1] — into ground-frame (nx, ny), where nx grows east and ny grows
+   * north, both in [0, 1]. The transform is the inverse of the artwork's
+   * counter-clockwise rotation from true north.
+   */
+  function artworkUvToGroundXY(u, v) {
+    const rot = ((ARTWORK_ROTATION_DEG % 360) + 360) % 360;
+    switch (rot) {
+      case 0:
+        return [u, 1 - v];
+      case 90:
+        return [1 - v, 1 - u];
+      case 180:
+        return [1 - u, v];
+      case 270:
+        return [v, u];
+      default: {
+        // Arbitrary angle: rotate around the centre of the unit square.
+        const cx = u - 0.5;
+        const cy = 0.5 - v; // flip so y grows up
+        const rad = (-rot * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        const nx = cx * cos - cy * sin + 0.5;
+        const ny = cx * sin + cy * cos + 0.5;
+        return [nx, ny];
+      }
+    }
+  }
+
   function uvToLatLng(bounds, u, v) {
+    const [nx, ny] = artworkUvToGroundXY(u, v);
     const north = bounds.getNorth();
     const south = bounds.getSouth();
     const west = bounds.getWest();
     const east = bounds.getEast();
-    const lat = north - v * (north - south);
-    const lng = west + u * (east - west);
+    const lat = south + ny * (north - south);
+    const lng = west + nx * (east - west);
     return L.latLng(lat, lng);
   }
 

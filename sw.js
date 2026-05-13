@@ -1,5 +1,5 @@
 /* Offline shell — precache app shell + CARTO-derived bundled OSM tiles */
-const CACHE = "edc-vegas-2026-v9";
+const CACHE = "edc-vegas-2026-v10";
 
 const CORE_ASSETS = [
   "/",
@@ -9,6 +9,7 @@ const CORE_ASSETS = [
   "/js/app.js",
   "/data/festival-pois.json",
   "/data/tiles-manifest.json",
+  "/assets/edc_map.jpg",
   "/vendor/leaflet/leaflet.js",
   "/vendor/leaflet/leaflet.css",
   "/vendor/leaflet/images/marker-icon.png",
