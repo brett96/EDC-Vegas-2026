@@ -142,6 +142,7 @@
     btnShare: document.getElementById("btn-share"),
     btnImport: document.getElementById("btn-import"),
     btnCenterFloat: document.getElementById("btn-center-float"),
+    btnEdcFloat: document.getElementById("btn-edc-float"),
     compassToggleNav: document.getElementById("compass-toggle-nav"),
     splitter: document.getElementById("split-splitter"),
     mapStack: document.getElementById("map-stack"),
@@ -191,6 +192,11 @@
   let poiLayer;
   let stageFillLayer;
   let stageLabelLayer;
+  /** @type {import("leaflet").TileLayer | null} */
+  let offlineTiles = null;
+  /** @type {import("leaflet").TileLayer | null} */
+  let onlineTiles = null;
+  let onlineMode = false;
   const leafletMarkers = new Map();
   const poiMarkers = new Map();
   let allPois = [];
@@ -480,15 +486,29 @@
   }
 
   function initMap() {
+    const WORLD_BOUNDS = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
+    const startOnline = typeof navigator !== "undefined" && navigator.onLine === true;
+    onlineMode = startOnline;
+
     map = L.map(els.map, {
-      maxBounds: WIDE_BOUNDS,
+      maxBounds: startOnline ? WORLD_BOUNDS : WIDE_BOUNDS,
+      maxBoundsViscosity: startOnline ? 0 : 1.0,
       zoomControl: true,
       attributionControl: true,
-      minZoom: 12,
+      minZoom: startOnline ? 2 : 12,
       maxZoom: 19,
     });
 
-    L.tileLayer(BASEMAP_TILE_URL, {
+    // Online world tiles (only used when the device is connected).
+    onlineTiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      minZoom: 2,
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · online',
+    });
+
+    // Offline bundled EDC-area tiles.
+    offlineTiles = L.tileLayer(BASEMAP_TILE_URL, {
       minZoom: 12,
       maxZoom: 19,
       maxNativeZoom: 16,
@@ -497,7 +517,15 @@
       bounds: WIDE_BOUNDS,
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · offline',
-    }).addTo(map);
+    });
+
+    if (startOnline) {
+      onlineTiles.addTo(map);
+      offlineTiles.addTo(map);
+      offlineTiles.bringToFront();
+    } else {
+      offlineTiles.addTo(map);
+    }
 
     map.fitBounds(MAP_BOUNDS.pad(0.08));
 
@@ -508,6 +536,47 @@
     poiLayer = L.layerGroup().addTo(map);
     pinsLayer = L.layerGroup().addTo(map);
     userMarker = L.marker(MAP_BOUNDS.getCenter(), { icon: userIcon() }).addTo(map);
+
+    const lockToOfflineBounds = () => {
+      if (!map) return;
+      if (onlineMode) return;
+      // Keep the viewport firmly inside the offline tile area so the user never scrolls into blank space.
+      try {
+        map.panInsideBounds(WIDE_BOUNDS, { animate: false });
+      } catch (_) {}
+    };
+
+    map.on("moveend", lockToOfflineBounds);
+
+    const applyConnectivityMode = (isOnline) => {
+      if (!map) return;
+      onlineMode = !!isOnline;
+
+      if (onlineMode) {
+        map.options.maxBoundsViscosity = 0;
+        map.setMinZoom(2);
+        try {
+          map.setMaxBounds(WORLD_BOUNDS);
+        } catch (_) {}
+
+        if (onlineTiles && !map.hasLayer(onlineTiles)) onlineTiles.addTo(map);
+        if (offlineTiles && !map.hasLayer(offlineTiles)) offlineTiles.addTo(map);
+        if (offlineTiles) offlineTiles.bringToFront();
+      } else {
+        // Offline: remove online tiles, lock bounds, and snap back to EDC.
+        if (onlineTiles && map.hasLayer(onlineTiles)) map.removeLayer(onlineTiles);
+        if (offlineTiles && !map.hasLayer(offlineTiles)) offlineTiles.addTo(map);
+
+        map.options.maxBoundsViscosity = 1.0;
+        map.setMinZoom(12);
+        map.setMaxBounds(WIDE_BOUNDS);
+        map.flyToBounds(MAP_BOUNDS.pad(0.08), { duration: 0.6 });
+        lockToOfflineBounds();
+      }
+    };
+
+    window.addEventListener("online", () => applyConnectivityMode(true));
+    window.addEventListener("offline", () => applyConnectivityMode(false));
   }
 
   function renderCategoryChips() {
@@ -1255,6 +1324,12 @@
     };
     els.btnCenter.addEventListener("click", doCenter);
     if (els.btnCenterFloat) els.btnCenterFloat.addEventListener("click", doCenter);
+    if (els.btnEdcFloat) {
+      els.btnEdcFloat.addEventListener("click", () => {
+        if (!map) return;
+        map.flyToBounds(MAP_BOUNDS.pad(0.08), { duration: 0.55 });
+      });
+    }
 
     const openPinNameDialog = (lat, lng, hint) => {
       els.inpName.value = "";
