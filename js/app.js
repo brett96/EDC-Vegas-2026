@@ -389,6 +389,14 @@
     return (m / 1000).toFixed(2) + " km";
   }
 
+  function formatDistNav(m) {
+    const FT_PER_M = 3.280839895;
+    const M_PER_MI = 1609.344;
+    if (!Number.isFinite(m) || m < 0) return "—";
+    if (m >= M_PER_MI) return (m / M_PER_MI).toFixed(m >= 10 * M_PER_MI ? 1 : 2) + " mi";
+    return Math.round(m * FT_PER_M) + " ft";
+  }
+
   function cardinal(deg) {
     const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"];
     return dirs[Math.round(deg / 45) % 8];
@@ -914,7 +922,8 @@
     if (typeof DeviceOrientationEvent.requestPermission === "function" && !compassEnabled) {
       return "Turn Compass on below. When Safari asks, allow Motion & Orientation access so the magnetometer-based arrow can appear.";
     }
-    if (compassEnabled && typeof compassHeading !== "number") {
+    // Don't show this message if we can still drive the arrow accurately via GPS course.
+    if (compassEnabled && navRealtimeHeading() == null && typeof compassHeading !== "number") {
       return "Compass is on but no sensor heading yet. Hold the phone flat, away from speakers and metal, and turn slowly. If nothing appears, confirm motion permission is allowed for this site.";
     }
     if (!compassEnabled) {
@@ -957,7 +966,7 @@
     const there = { lat: activeNavTarget.lat, lng: activeNavTarget.lng };
     const dist = haversineM(here, there);
     const brg = bearingDeg(here, there);
-    els.navDistance.textContent = formatDist(dist);
+    els.navDistance.textContent = formatDistNav(dist);
     els.navBearing.textContent = Math.round(brg) + "° · " + cardinal(brg) + " to target";
 
     const deviceH = navRealtimeHeading();
