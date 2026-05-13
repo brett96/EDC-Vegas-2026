@@ -257,10 +257,6 @@
     scheduleConflictSummary: document.getElementById("schedule-conflict-summary"),
     scheduleItineraryList: document.getElementById("schedule-itinerary-list"),
     scheduleSetList: document.getElementById("schedule-set-list"),
-    scheduleWalkInfo: document.getElementById("schedule-walk-info"),
-    scheduleWalkInfoBtn: document.getElementById("schedule-walk-info-btn"),
-    scheduleWalkTooltip: document.getElementById("schedule-walk-tooltip"),
-    scheduleWalkTooltipBody: document.getElementById("schedule-walk-tooltip-body"),
     meetupsCount: document.getElementById("meetups-count"),
     venueCount: document.getElementById("venue-count"),
     scheduleCount: document.getElementById("schedule-count"),
@@ -1878,7 +1874,6 @@
 
   function openDeleteScheduleSetConfirm(setId) {
     if (!els.dlgDeleteScheduleSet || !els.deleteScheduleSetName) return;
-    closeScheduleWalkTooltip();
     const set = allScheduleSets.find((x) => x.id === setId);
     els.deleteScheduleSetName.textContent = (set && set.artist) || "This set";
     els.dlgDeleteScheduleSet.dataset.setId = setId;
@@ -2692,130 +2687,10 @@
     } else history.replaceState(null, "", location.pathname + location.search);
   }
 
-  function initScheduleWalkTooltipText() {
-    if (!els.scheduleWalkTooltipBody) return;
-    const mph = (WALK_METERS_PER_MINUTE * 60) / 1609.344;
-    const mphStr = mph >= 10 ? mph.toFixed(1) : mph.toFixed(2);
-    els.scheduleWalkTooltipBody.textContent =
-      "Leave By uses straight-line distance between stage pins on the map (not turn-by-turn routing; real walks are longer). " +
-      "Time assumes about " +
-      WALK_METERS_PER_MINUTE +
-      " meters per minute (~" +
-      mphStr +
-      " mi/h) through crowds plus " +
-      WALK_BUFFER_MINUTES +
-      " minutes buffer, with at least " +
-      MIN_TRANSITION_MINUTES +
-      " minutes between sets. " +
-      "The CSV has start times only: each set is assumed to end when the next act starts on the same stage, or after " +
-      DEFAULT_SET_MINUTES +
-      " minutes if there is no later slot. " +
-      "If your next saved set starts at least " +
-      DECENT_GAP_BETWEEN_STARTS_MS / 60000 +
-      " minutes after this one, Leave By can show one hour after this set's start (flexible), as long as that still fits the inferred set end and walking time to the next stage.";
-  }
-
-  function closeScheduleWalkTooltip() {
-    if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn) return;
-    els.scheduleWalkTooltip.hidden = true;
-    els.scheduleWalkInfoBtn.setAttribute("aria-expanded", "false");
-    clearScheduleWalkTooltipLayout();
-  }
-
-  function clearScheduleWalkTooltipLayout() {
-    if (!els.scheduleWalkTooltip) return;
-    ["position", "left", "top", "right", "bottom", "width", "maxWidth", "zIndex", "boxSizing"].forEach((prop) => {
-      els.scheduleWalkTooltip.style[prop] = "";
-    });
-  }
-
-  let scheduleWalkRepositionRaf = null;
-  function scheduleWalkRepositionSoon() {
-    if (!els.scheduleWalkTooltip || els.scheduleWalkTooltip.hidden) return;
-    if (scheduleWalkRepositionRaf != null) cancelAnimationFrame(scheduleWalkRepositionRaf);
-    scheduleWalkRepositionRaf = requestAnimationFrame(() => {
-      scheduleWalkRepositionRaf = null;
-      positionScheduleWalkTooltip();
-    });
-  }
-
-  function positionScheduleWalkTooltip() {
-    if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn || els.scheduleWalkTooltip.hidden) return;
-    const btn = els.scheduleWalkInfoBtn;
-    const tip = els.scheduleWalkTooltip;
-    const pad = 12;
-    const gap = 8;
-    const r = btn.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const maxW = Math.min(400, Math.max(220, vw - 2 * pad));
-    tip.style.boxSizing = "border-box";
-    tip.style.position = "fixed";
-    tip.style.width = maxW + "px";
-    tip.style.maxWidth = maxW + "px";
-    tip.style.zIndex = "1300";
-    tip.style.right = "auto";
-    tip.style.bottom = "auto";
-    const tw = tip.offsetWidth;
-    const th = tip.offsetHeight;
-    const centerX = r.left + r.width / 2;
-    let left = Math.round(centerX - tw / 2);
-    left = Math.max(pad, Math.min(left, vw - pad - tw));
-    let top = r.top - gap - th;
-    if (top < pad) top = r.bottom + gap;
-    if (top + th > vh - pad) top = Math.max(pad, vh - pad - th);
-    tip.style.left = left + "px";
-    tip.style.top = top + "px";
-  }
-
-  function openScheduleWalkTooltip() {
-    if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn) return;
-    els.scheduleWalkTooltip.hidden = false;
-    els.scheduleWalkInfoBtn.setAttribute("aria-expanded", "true");
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        positionScheduleWalkTooltip();
-      });
-    });
-  }
-
-  function toggleScheduleWalkTooltip() {
-    if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn) return;
-    if (els.scheduleWalkTooltip.hidden) openScheduleWalkTooltip();
-    else closeScheduleWalkTooltip();
-  }
-
-  function onDocPointerCloseScheduleWalk(ev) {
-    if (!els.scheduleWalkTooltip || els.scheduleWalkTooltip.hidden) return;
-    if (els.scheduleWalkInfo && els.scheduleWalkInfo.contains(ev.target)) return;
-    closeScheduleWalkTooltip();
-  }
-
-  function onKeyCloseScheduleWalk(ev) {
-    if (ev.key !== "Escape") return;
-    if (!els.scheduleWalkTooltip || els.scheduleWalkTooltip.hidden) return;
-    closeScheduleWalkTooltip();
-  }
-
-  function wireScheduleWalkTooltip() {
-    initScheduleWalkTooltipText();
-    if (!els.scheduleWalkInfoBtn || !els.scheduleWalkTooltip) return;
-    els.scheduleWalkInfoBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleScheduleWalkTooltip();
-    });
-    document.addEventListener("pointerdown", onDocPointerCloseScheduleWalk, true);
-    window.addEventListener("keydown", onKeyCloseScheduleWalk);
-    window.addEventListener("resize", scheduleWalkRepositionSoon);
-    const scheduleScrollEl = document.getElementById("schedule-scroll");
-    if (scheduleScrollEl) scheduleScrollEl.addEventListener("scroll", scheduleWalkRepositionSoon, { passive: true });
-  }
-
   function setSheetTab(which) {
     const isMeet = which === "meetups";
     const isVenue = which === "venue";
     const isSchedule = which === "schedule";
-    if (!isSchedule) closeScheduleWalkTooltip();
     els.tabMeetups.setAttribute("aria-selected", isMeet ? "true" : "false");
     els.tabVenue.setAttribute("aria-selected", isVenue ? "true" : "false");
     if (els.tabSchedule) els.tabSchedule.setAttribute("aria-selected", isSchedule ? "true" : "false");
@@ -2908,7 +2783,6 @@
     if (els.scheduleDay) els.scheduleDay.addEventListener("change", () => renderScheduleTab());
     if (els.scheduleStage) els.scheduleStage.addEventListener("change", () => renderScheduleTab());
     if (els.scheduleGenre) els.scheduleGenre.addEventListener("change", () => renderScheduleTab());
-    wireScheduleWalkTooltip();
 
     const doCenter = () => {
       if (userMarker) map.flyTo(userMarker.getLatLng(), Math.max(map.getZoom(), 16), { duration: 0.5 });
