@@ -800,15 +800,23 @@ dialog.modal::backdrop {
 
 .leaflet-popup-nav-shell .leaflet-popup-content {
   margin: 10px 12px 12px;
+  /* Reserve space so the close button never overlays title text (mobile). */
+  padding-right: 26px;
   line-height: 1.35;
 }
 
 .leaflet-popup-nav-shell a.leaflet-popup-close-button {
   color: var(--text);
-  padding: 8px 10px 0 0;
-  width: 28px;
-  height: 28px;
+  top: 6px;
+  right: 6px;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
   font-size: 1.25rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
 }
 
 .leaflet-popup-nav-shell .leaflet-popup-tip {
