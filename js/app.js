@@ -19,7 +19,8 @@
   }
 
   const POI_DATA_URL = asset("data/festival-pois.json");
-  const BASEMAP_TILE_URL = asset("tiles/{z}/{x}/{y}.png");
+  /** Leaflet needs literal `{z}/{x}/{y}` — `new URL()` encodes `{` and breaks tiles. */
+  const BASEMAP_TILE_URL = ASSET_BASE_URL.replace(/\/?$/, "/") + "tiles/{z}/{x}/{y}.png";
 
   /**
    * LVMS infield rectangle (landscape). Used to convert each POI's normalized
