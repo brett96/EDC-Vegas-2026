@@ -500,11 +500,12 @@
     });
 
     // Online world tiles (only used when the device is connected).
-    onlineTiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    onlineTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      subdomains: "abcd",
       minZoom: 2,
       maxZoom: 19,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · online',
+        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · online',
     });
 
     // Offline bundled EDC-area tiles.
