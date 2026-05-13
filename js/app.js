@@ -327,9 +327,12 @@
 
   function onDeviceOrientation(e) {
     if (typeof e.webkitCompassHeading === "number") {
+      // iOS: proprietary but reliable true-north heading
       compassHeading = e.webkitCompassHeading;
     } else if (e.absolute === true && typeof e.alpha === "number") {
-      compassHeading = e.alpha;
+      // Android: alpha is 0 at North and increases counter-clockwise (90 = West).
+      // Convert to standard compass bearing (clockwise, 90 = East).
+      compassHeading = (360 - e.alpha) % 360;
     }
     if (els.navOverlay.dataset.open === "true") updateNavReadout();
   }
@@ -947,6 +950,8 @@
       compassMotionPermissionDenied = false;
       if (!orientationHooked) {
         window.addEventListener("deviceorientation", onDeviceOrientation, true);
+        // Android true-north requires a separate event in many browsers.
+        window.addEventListener("deviceorientationabsolute", onDeviceOrientation, true);
         orientationHooked = true;
       }
       compassEnabled = true;
@@ -979,6 +984,7 @@
   function disableCompass() {
     if (orientationHooked) {
       window.removeEventListener("deviceorientation", onDeviceOrientation, true);
+      window.removeEventListener("deviceorientationabsolute", onDeviceOrientation, true);
       orientationHooked = false;
     }
     compassHeading = null;
