@@ -1,21 +1,28 @@
 /**
- * Copy this into your Next.js portfolio project's `next.config.js` (or merge `rewrites`).
- * Order matters: `/edc` before `/edc/:path*`.
+ * Merge into your Next.js portfolio `next.config.js` (or rename to `next.config.cjs`).
  *
- * Optional: redirect `/edc` → `/edc/` so relative asset URLs in the PWA resolve correctly:
- *   async redirects() {
- *     return [{ source: '/edc', destination: '/edc/', permanent: true }];
- *   },
+ * 1) **Redirect** `/edc` → `/edc/` so the browser treats `/edc/` as a directory.
+ *    Otherwise `./css/app.css` on a `/edc` URL resolves to `/css/app.css` (wrong).
  *
- * If the service worker is proxied at `yoursite.com/edc/sw.js`, add on the portfolio
- * project (not this repo): `Service-Worker-Allowed: /` for that path if the browser
- * complains about scope (usually not needed when SW lives under `/edc/`).
+ * 2) **Rewrites** proxy `/edc/` and `/edc/*` to the standalone EDC Vercel deployment.
+ *    `/edc/` must map to `index.html` after the redirect (the old `/edc`-only rewrite
+ *    never runs for the browser once redirects send `/edc` → `/edc/`).
  */
 module.exports = {
-  async rewrites() {
+  async redirects() {
     return [
       {
         source: "/edc",
+        destination: "/edc/",
+        permanent: true,
+      },
+    ];
+  },
+
+  async rewrites() {
+    return [
+      {
+        source: "/edc/",
         destination: "https://edc-vegas-2026.vercel.app/index.html",
       },
       {

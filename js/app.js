@@ -1192,13 +1192,86 @@
       els.inpName.focus();
     };
 
-    map.on("click", (e) => {
-      if (els.navOverlay && els.navOverlay.dataset.open === "true") return;
-      const raw = e.originalEvent;
-      if (raw && typeof raw.detail === "number" && raw.detail > 1) return;
-      const ll = e.latlng;
-      openPinNameDialog(ll.lat, ll.lng, "Saved at the spot you tapped on the map.");
+    /** Close POI/pin popups when the user interacts with the map outside the popup. */
+    map.on("click", () => {
+      if (map) map.closePopup();
     });
+
+    const mapContainer = map.getContainer();
+    const MEETUP_HOLD_MS = 1000;
+    const MEETUP_MOVE_CANCEL_PX = 14;
+    /** @type {{ pointerId: number, x0: number, y0: number, ll: L.LatLng, timer: ReturnType<typeof setTimeout> } | null} */
+    let meetupPress = null;
+
+    function cancelMeetupPress() {
+      if (meetupPress && meetupPress.timer) clearTimeout(meetupPress.timer);
+      meetupPress = null;
+    }
+
+    function ignoreMeetupPointerTarget(t) {
+      if (!t || typeof t.closest !== "function") return false;
+      if (t.closest(".leaflet-popup")) return true;
+      if (t.closest(".leaflet-control")) return true;
+      if (t.closest(".leaflet-interactive")) return true;
+      if (t.closest(".map-float")) return true;
+      return false;
+    }
+
+    mapContainer.addEventListener(
+      "touchstart",
+      (ev) => {
+        if (els.navOverlay && els.navOverlay.dataset.open === "true") return;
+        const t = ev.target;
+        if (ignoreMeetupPointerTarget(t)) return;
+        map.closePopup();
+      },
+      { passive: true }
+    );
+
+    mapContainer.addEventListener("pointerdown", (ev) => {
+      if (ev.pointerType === "mouse" && ev.button !== 0) return;
+      if (els.navOverlay && els.navOverlay.dataset.open === "true") return;
+      if (ignoreMeetupPointerTarget(ev.target)) return;
+      const raw = ev;
+      if (raw && typeof raw.detail === "number" && raw.detail > 1) return;
+
+      cancelMeetupPress();
+      const r = mapContainer.getBoundingClientRect();
+      const x = ev.clientX - r.left - (mapContainer.clientLeft || 0);
+      const y = ev.clientY - r.top - (mapContainer.clientTop || 0);
+      const ll = map.containerPointToLatLng(L.point(x, y));
+
+      meetupPress = {
+        pointerId: ev.pointerId,
+        x0: ev.clientX,
+        y0: ev.clientY,
+        ll,
+        timer: setTimeout(() => {
+          if (!meetupPress || !meetupPress.ll) return;
+          const held = meetupPress.ll;
+          meetupPress.timer = null;
+          meetupPress = null;
+          if (els.navOverlay && els.navOverlay.dataset.open === "true") return;
+          map.closePopup();
+          openPinNameDialog(held.lat, held.lng, "Press and hold on the map to drop a pin at this spot.");
+        }, MEETUP_HOLD_MS),
+      };
+    });
+
+    mapContainer.addEventListener("pointermove", (ev) => {
+      if (!meetupPress || meetupPress.pointerId !== ev.pointerId) return;
+      const dx = ev.clientX - meetupPress.x0;
+      const dy = ev.clientY - meetupPress.y0;
+      if (dx * dx + dy * dy > MEETUP_MOVE_CANCEL_PX * MEETUP_MOVE_CANCEL_PX) cancelMeetupPress();
+    });
+
+    function endMeetupPointer(ev) {
+      if (!meetupPress || meetupPress.pointerId !== ev.pointerId) return;
+      if (meetupPress.timer) clearTimeout(meetupPress.timer);
+      meetupPress = null;
+    }
+    mapContainer.addEventListener("pointerup", endMeetupPointer);
+    mapContainer.addEventListener("pointercancel", endMeetupPointer);
 
     const doPinAtCenter = () => {
       if (!map) return;
@@ -1206,7 +1279,7 @@
       openPinNameDialog(
         ll.lat,
         ll.lng,
-        "Placed at map center — pan first if needed, or tap the map to choose an exact spot."
+        "Placed at map center — pan first if needed, or press and hold on the map to choose an exact spot."
       );
     };
     els.btnPin.addEventListener("click", doPinAtCenter);
