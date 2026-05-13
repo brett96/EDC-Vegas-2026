@@ -1,14 +1,14 @@
-/* Offline shell for EDC Vegas 2026 PWA — precache all static assets */
-const CACHE = "edc-vegas-2026-v3";
+/* Offline shell for EDC Vegas 2026 PWA — precache app shell + bundled OSM tiles */
+const CACHE = "edc-vegas-2026-v5";
 
-const ASSETS = [
+const CORE_ASSETS = [
   "/",
   "/index.html",
   "/manifest.webmanifest",
   "/css/app.css",
   "/js/app.js",
   "/data/festival-pois.json",
-  "/assets/edclv_2026_festival_map.jpg",
+  "/data/tiles-manifest.json",
   "/vendor/leaflet/leaflet.js",
   "/vendor/leaflet/leaflet.css",
   "/vendor/leaflet/images/marker-icon.png",
@@ -18,11 +18,31 @@ const ASSETS = [
   "/icons/icon-512.png",
 ];
 
+function cacheTileUrls(cache, urls) {
+  return urls.reduce(
+    (chain, path) =>
+      chain.then(() =>
+        cache.add(path).catch((err) => {
+          console.warn("[sw] tile precache", path, err);
+        })
+      ),
+    Promise.resolve()
+  );
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(ASSETS))
+      .then((cache) => cache.addAll(CORE_ASSETS))
+      .then(() =>
+        fetch("/data/tiles-manifest.json")
+          .then((r) => r.json())
+          .then((urls) => {
+            if (!Array.isArray(urls)) return undefined;
+            return caches.open(CACHE).then((cache) => cacheTileUrls(cache, urls));
+          })
+      )
       .then(() => self.skipWaiting())
       .catch((err) => {
         console.error("[sw] precache failed", err);

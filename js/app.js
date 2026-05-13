@@ -4,7 +4,7 @@
   const STORAGE_KEY = "edc2026_pins_v1";
   const SHARE_PREFIX = "share=";
   const POI_DATA_URL = "/data/festival-pois.json";
-  const FESTIVAL_MAP_URL = "/assets/edclv_2026_festival_map.jpg";
+  const OSM_TILE_URL = "/tiles/{z}/{x}/{y}.png";
 
   /** LVMS infield center; north–south span chosen so 1080×1350 map matches tri-oval infield scale (approximate). */
   const MAP_CENTER = { lat: 36.27225, lng: -115.01145 };
@@ -108,6 +108,10 @@
     btnShare: document.getElementById("btn-share"),
     btnImport: document.getElementById("btn-import"),
     btnCompass: document.getElementById("btn-compass"),
+    btnCenterFloat: document.getElementById("btn-center-float"),
+    btnPinFloat: document.getElementById("btn-pin-float"),
+    sheet: document.getElementById("main-sheet"),
+    sheetHandle: document.getElementById("sheet-handle"),
     navOverlay: document.getElementById("nav-overlay"),
     navClose: document.getElementById("nav-close"),
     navMap: document.getElementById("nav-map"),
@@ -288,15 +292,24 @@
 
   function initMap() {
     map = L.map(els.map, {
-      maxBounds: MAP_BOUNDS.pad(0.12),
+      maxBounds: MAP_BOUNDS.pad(0.55),
       zoomControl: true,
-      attributionControl: false,
-      minZoom: 12,
-      maxZoom: 20,
+      attributionControl: true,
+      minZoom: 14,
+      maxZoom: 19,
     });
 
-    L.imageOverlay(FESTIVAL_MAP_URL, MAP_BOUNDS).addTo(map);
-    map.fitBounds(MAP_BOUNDS);
+    L.tileLayer(OSM_TILE_URL, {
+      minZoom: 14,
+      maxZoom: 19,
+      maxNativeZoom: 16,
+      tileSize: 256,
+      bounds: MAP_BOUNDS.pad(0.85),
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · bundled tiles',
+    }).addTo(map);
+
+    map.fitBounds(MAP_BOUNDS.pad(0.08));
 
     userMarker = L.marker(MAP_BOUNDS.getCenter(), { icon: userIcon() }).addTo(map);
     pinsLayer = L.layerGroup().addTo(map);
@@ -371,7 +384,7 @@
       p.lng = ll.lng;
       const col = CATEGORY_COLORS[p.category] || "#888";
       const m = L.circleMarker(ll, {
-        radius: 5,
+        radius: 6,
         color: "#0a0514",
         weight: 1,
         fillColor: col,
@@ -734,19 +747,34 @@
     els.panelVenue.hidden = isMeet;
   }
 
+  function syncSheetLayout() {
+    if (!els.sheet) return;
+    const full = els.sheet.dataset.expanded === "true";
+    document.documentElement.dataset.sheetSize = full ? "full" : "compact";
+  }
+
   function wireUi() {
     els.tabMeetups.addEventListener("click", () => setSheetTab("meetups"));
     els.tabVenue.addEventListener("click", () => setSheetTab("venue"));
 
+    if (els.sheetHandle && els.sheet) {
+      els.sheetHandle.addEventListener("click", () => {
+        els.sheet.dataset.expanded = els.sheet.dataset.expanded === "true" ? "false" : "true";
+        syncSheetLayout();
+      });
+    }
+
     els.poiSearch.addEventListener("input", () => renderPoiList());
     els.poiCat.addEventListener("change", () => renderPoiList());
 
-    els.btnCenter.addEventListener("click", () => {
+    const doCenter = () => {
       if (userMarker) map.flyTo(userMarker.getLatLng(), Math.max(map.getZoom(), 16), { duration: 0.5 });
       startGeolocation();
-    });
+    };
+    els.btnCenter.addEventListener("click", doCenter);
+    if (els.btnCenterFloat) els.btnCenterFloat.addEventListener("click", doCenter);
 
-    els.btnPin.addEventListener("click", () => {
+    const doPin = () => {
       if (!map) return;
       const ll =
         lastPosition && Number.isFinite(lastPosition.coords.latitude)
@@ -761,7 +789,9 @@
           : "GPS not locked yet — this pin uses the map center. Pan/zoom first, or tap Center on me and wait.";
       els.dlgName.showModal();
       els.inpName.focus();
-    });
+    };
+    els.btnPin.addEventListener("click", doPin);
+    if (els.btnPinFloat) els.btnPinFloat.addEventListener("click", doPin);
 
     els.nameCancel.addEventListener("click", () => els.dlgName.close());
 
@@ -846,6 +876,7 @@
     initMap();
     registerSw();
     wireUi();
+    syncSheetLayout();
 
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: "/vendor/leaflet/images/marker-icon-2x.png",
