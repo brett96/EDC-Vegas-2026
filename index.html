@@ -95,7 +95,18 @@
     <div id="nav-overlay" class="nav-overlay" data-open="false" aria-hidden="true">
       <div class="nav-top">
         <button type="button" class="btn btn-ghost" id="nav-close">Close</button>
-        <button type="button" class="btn" id="nav-map">Show on map</button>
+        <div class="nav-top-actions">
+          <button type="button" class="btn" id="nav-map">Show on map</button>
+          <button
+            type="button"
+            class="btn btn-ghost nav-refresh-location"
+            id="nav-refresh-location"
+            title="Refresh GPS — update distance and map pin"
+            aria-label="Refresh GPS location"
+          >
+            ↻
+          </button>
+        </div>
       </div>
       <div class="nav-target">
         <h2 id="nav-title">Meetup</h2>

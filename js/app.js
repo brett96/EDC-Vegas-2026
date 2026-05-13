@@ -152,6 +152,7 @@
     navOverlay: document.getElementById("nav-overlay"),
     navClose: document.getElementById("nav-close"),
     navMap: document.getElementById("nav-map"),
+    navRefreshLocation: document.getElementById("nav-refresh-location"),
     navTitle: document.getElementById("nav-title"),
     navSub: document.getElementById("nav-sub"),
     navDistance: document.getElementById("nav-distance"),
@@ -958,6 +959,7 @@
       navHistoryPushed = false;
       history.back();
     }
+    if (els.navRefreshLocation) els.navRefreshLocation.disabled = false;
   }
 
   /**
@@ -1081,6 +1083,30 @@
     if (err && err.code === 1) geoPermissionDenied = true;
     els.coordStrip.textContent = "GPS error: " + (err && err.message ? err.message : "unknown");
     if (els.navOverlay.dataset.open === "true") syncNavCompassPanel();
+  }
+
+  /** One-shot high-accuracy fix from the nav screen (↻). Reuses watch pipeline via onGeoSuccess. */
+  function refreshNavLocationFromButton() {
+    if (!els.navRefreshLocation || els.navRefreshLocation.disabled) return;
+    if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== "function") {
+      toast("Geolocation is not available");
+      return;
+    }
+    if (els.navOverlay.dataset.open !== "true") return;
+    els.navRefreshLocation.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (els.navRefreshLocation) els.navRefreshLocation.disabled = false;
+        lastNavMiniMapFitAt = 0;
+        onGeoSuccess(pos);
+      },
+      (err) => {
+        if (els.navRefreshLocation) els.navRefreshLocation.disabled = false;
+        if (err && err.code === 1) toast("Location permission denied");
+        else toast("Could not refresh GPS. Try again in an open area.");
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
   }
 
   function startGeolocation() {
@@ -1746,6 +1772,7 @@
     }
 
     els.navClose.addEventListener("click", () => closeNav());
+    if (els.navRefreshLocation) els.navRefreshLocation.addEventListener("click", () => refreshNavLocationFromButton());
     els.navMap.addEventListener("click", () => {
       if (!activeNavTarget) return;
       const kind = activeNavTarget.kind;

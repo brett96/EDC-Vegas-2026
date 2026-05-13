@@ -541,6 +541,22 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+}
+
+.nav-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.nav-refresh-location {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .nav-target {
