@@ -1,12 +1,14 @@
 """
 Prefetch CARTO basemap raster tiles (OSM-derived) for Las Vegas Motor Speedway
-for offline PWA hosting. Tiles are served only from your origin — browsers never
-hit public tile CDNs in production.
+for offline PWA hosting. Tiles are served only from your origin in production.
 
   python scripts/fetch_osm_tiles.py
 
-Writes tiles/{z}/{x}/{y}.png and data/tiles-manifest.json
-See CARTO / OSM attribution in app map footer.
+Writes tiles/{z}/{x}/{y}.png and data/tiles-manifest.json.
+
+Two zoom regimes:
+  * Low zoom (12, 13): wider context box around LVMS so users can zoom out.
+  * Mid zoom (14, 15, 16): tight box covering the festival venue itself.
 """
 from __future__ import annotations
 
@@ -16,39 +18,37 @@ import os
 import time
 import urllib.request
 
-# Match js/app.js MAP_CENTER, MAP_NS_METERS, MAP_IMG_ASPECT
-MAP_CENTER_LAT = 36.27225
-MAP_CENTER_LNG = -115.01145
-MAP_NS_METERS = 1220
-MAP_IMG_ASPECT = 1080 / 1350
-R = 111320.0
+# LVMS infield (must stay in sync with INFIELD_BOUNDS in js/app.js)
+INFIELD_SOUTH = 36.2685
+INFIELD_NORTH = 36.2755
+INFIELD_WEST = -115.0175
+INFIELD_EAST = -115.0050
 
-d_lat = MAP_NS_METERS / R
-cos_lat = math.cos(math.radians(MAP_CENTER_LAT))
-d_lng = (MAP_NS_METERS * MAP_IMG_ASPECT) / (R * cos_lat)
+# Wider context box used for low zoom levels and zoom-out behavior
+WIDE_SOUTH = 36.245
+WIDE_NORTH = 36.298
+WIDE_WEST = -115.045
+WIDE_EAST = -114.985
 
-SOUTH = MAP_CENTER_LAT - d_lat / 2
-NORTH = MAP_CENTER_LAT + d_lat / 2
-WEST = MAP_CENTER_LNG - d_lng / 2
-EAST = MAP_CENTER_LNG + d_lng / 2
+# (zoom, south, west, north, east)
+ZOOM_BOXES = [
+    (12, WIDE_SOUTH, WIDE_WEST, WIDE_NORTH, WIDE_EAST),
+    (13, WIDE_SOUTH, WIDE_WEST, WIDE_NORTH, WIDE_EAST),
+    (14, INFIELD_SOUTH - 0.005, INFIELD_WEST - 0.008, INFIELD_NORTH + 0.005, INFIELD_EAST + 0.008),
+    (15, INFIELD_SOUTH - 0.002, INFIELD_WEST - 0.003, INFIELD_NORTH + 0.002, INFIELD_EAST + 0.003),
+    (16, INFIELD_SOUTH - 0.001, INFIELD_WEST - 0.002, INFIELD_NORTH + 0.001, INFIELD_EAST + 0.002),
+]
 
-PAD = 0.00035
-SOUTH -= PAD
-WEST -= PAD
-NORTH += PAD
-EAST += PAD
-
-ZOOMS = (14, 15, 16)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TILES_DIR = os.path.join(ROOT, "tiles")
 MANIFEST = os.path.join(ROOT, "data", "tiles-manifest.json")
 UA = "EDC-Vegas-2026-Offline-PWA/1.0 (one-time tile prefetch for bundled offline map)"
 
-# CARTO "dark_all" — suitable for night UI; data © OpenStreetMap contributors, design © CARTO
+# CARTO "dark_all" — OSM-based; data © OpenStreetMap, design © CARTO
 CARTO_TEMPLATE = "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
 
 
-def latlon_to_tile(lat_deg: float, lon_deg: float, zoom: int) -> tuple[int, int]:
+def latlon_to_tile(lat_deg: float, lon_deg: float, zoom: int):
     lat_rad = math.radians(lat_deg)
     n = 2.0**zoom
     x = int((lon_deg + 180.0) / 360.0 * n)
@@ -56,8 +56,8 @@ def latlon_to_tile(lat_deg: float, lon_deg: float, zoom: int) -> tuple[int, int]
     return x, y
 
 
-def bbox_tile_ranges(z: int):
-    corners = ((NORTH, WEST), (NORTH, EAST), (SOUTH, WEST), (SOUTH, EAST))
+def bbox_tile_ranges(z: int, south: float, west: float, north: float, east: float):
+    corners = ((north, west), (north, east), (south, west), (south, east))
     xs, ys = [], []
     for lat, lon in corners:
         x, y = latlon_to_tile(lat, lon, z)
@@ -69,8 +69,8 @@ def bbox_tile_ranges(z: int):
 def main() -> None:
     os.makedirs(os.path.join(ROOT, "data"), exist_ok=True)
     urls: list[str] = []
-    for z in ZOOMS:
-        xr, yr = bbox_tile_ranges(z)
+    for z, s, w, n, e in ZOOM_BOXES:
+        xr, yr = bbox_tile_ranges(z, s, w, n, e)
         for x in xr:
             for y in yr:
                 rel = f"/tiles/{z}/{x}/{y}.png"
@@ -87,12 +87,12 @@ def main() -> None:
                         data = resp.read()
                     with open(fp, "wb") as out:
                         out.write(data)
-                except Exception as e:
-                    print("FAIL", url, e)
+                except Exception as ex:
+                    print("FAIL", url, ex)
                     raise
                 time.sleep(0.15)
                 print("ok", z, x, y, len(data))
-    urls.sort()
+    urls = sorted(set(urls))
     with open(MANIFEST, "w", encoding="utf-8") as f:
         json.dump(urls, f, indent=0)
     print("Wrote", len(urls), "tile paths to", MANIFEST)

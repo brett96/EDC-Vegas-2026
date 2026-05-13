@@ -1,5 +1,5 @@
 /* Offline shell — precache app shell, CARTO-derived bundled tiles, festival overlay JPG */
-const CACHE = "edc-vegas-2026-v7";
+const CACHE = "edc-vegas-2026-v8";
 
 const CORE_ASSETS = [
   "/",

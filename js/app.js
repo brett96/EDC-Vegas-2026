@@ -8,23 +8,21 @@
   const FESTIVAL_MAP_URL = "/assets/edclv_2026_festival_map.jpg";
   const SPLIT_PX_KEY = "edc2026_split_px";
 
-  /** LVMS infield center; north–south span chosen so 1080×1350 map matches tri-oval infield scale (approximate). */
-  const MAP_CENTER = { lat: 36.27225, lng: -115.01145 };
-  const MAP_NS_METERS = 1220;
-  const MAP_IMG_ASPECT = 1080 / 1350;
-
-  function buildMapBounds() {
-    const R = 111320;
-    const dLat = MAP_NS_METERS / R;
-    const cos = Math.cos((MAP_CENTER.lat * Math.PI) / 180);
-    const dLng = (MAP_NS_METERS * MAP_IMG_ASPECT) / (R * cos);
-    return L.latLngBounds(
-      [MAP_CENTER.lat - dLat / 2, MAP_CENTER.lng - dLng / 2],
-      [MAP_CENTER.lat + dLat / 2, MAP_CENTER.lng + dLng / 2]
-    );
-  }
-
-  const MAP_BOUNDS = buildMapBounds();
+  /**
+   * LVMS infield (landscape). Tweak in 5–10 m increments after a field check.
+   * The festival map JPG is portrait, so overlaying it on the real (landscape)
+   * infield stretches the artwork horizontally — that is intentional so the
+   * stylized oval roughly matches the actual tri-oval shape on the basemap.
+   */
+  const INFIELD_BOUNDS = L.latLngBounds(
+    [36.2685, -115.0175], // SW
+    [36.2755, -115.005]   // NE
+  );
+  const MAP_BOUNDS = INFIELD_BOUNDS;
+  const WIDE_BOUNDS = L.latLngBounds(
+    [36.245, -115.045],
+    [36.298, -114.985]
+  );
 
   const PIN_COLORS = ["#ff2dbe", "#00f5ff", "#39ff14", "#ffd400", "#c86bff", "#ff6b35", "#ffffff"];
 
@@ -295,25 +293,26 @@
 
   function initMap() {
     map = L.map(els.map, {
-      maxBounds: MAP_BOUNDS.pad(0.55),
+      maxBounds: WIDE_BOUNDS,
       zoomControl: true,
       attributionControl: true,
-      minZoom: 14,
+      minZoom: 12,
       maxZoom: 19,
     });
 
     L.tileLayer(BASEMAP_TILE_URL, {
-      minZoom: 14,
+      minZoom: 12,
       maxZoom: 19,
       maxNativeZoom: 16,
+      minNativeZoom: 12,
       tileSize: 256,
-      bounds: MAP_BOUNDS.pad(0.85),
+      bounds: WIDE_BOUNDS,
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · offline',
     }).addTo(map);
 
     L.imageOverlay(FESTIVAL_MAP_URL, MAP_BOUNDS, {
-      opacity: 0.72,
+      opacity: 0.62,
       interactive: false,
       className: "festival-map-overlay",
     }).addTo(map);
