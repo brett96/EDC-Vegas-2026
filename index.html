@@ -140,6 +140,10 @@
             <select id="schedule-day" class="poi-cat" aria-label="Filter by day"></select>
             <select id="schedule-stage" class="poi-cat" aria-label="Filter by stage"></select>
             <select id="schedule-genre" class="poi-cat" aria-label="Filter by genre"></select>
+            <div class="schedule-share-actions" role="group" aria-label="Share or import saved schedule">
+              <button type="button" class="btn btn-sm" id="btn-schedule-share">↗ Share</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-schedule-import">⬇ Import</button>
+            </div>
           </div>
           <p id="schedule-conflict-summary" class="schedule-conflict-summary" hidden></p>
           <div id="schedule-scroll" class="schedule-scroll">
@@ -297,6 +301,49 @@
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="import-replace-cancel">Cancel</button>
           <button type="button" class="btn btn-primary" id="import-replace-confirm">Replace all</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="dlg-share-schedule" class="modal">
+      <div class="modal-body">
+        <h3>Share schedule</h3>
+        <p>
+          Friends open this link once online (then add to home screen if they use the PWA). The link only contains your
+          <strong>saved sets</strong>, not meetup pins.
+        </p>
+        <input type="text" id="inp-share-schedule-url" readonly />
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="btn-copy-schedule-link">Copy link</button>
+          <button type="button" class="btn btn-ghost" id="btn-system-share-schedule">Share…</button>
+          <button type="button" class="btn btn-ghost" id="schedule-share-close">Done</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="dlg-import-schedule" class="modal">
+      <form class="modal-body" id="form-import-schedule">
+        <h3>Import schedule</h3>
+        <p>Paste a full share link, or just the <code>#sch=…</code> fragment.</p>
+        <input type="text" id="inp-import-schedule" autocomplete="off" placeholder="#sch=… or full URL" />
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="import-schedule-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" name="mode" value="merge">Merge</button>
+          <button type="submit" class="btn btn-primary" name="mode" value="replace">Replace all</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="dlg-import-replace-schedule" class="modal">
+      <div class="modal-body">
+        <h3>Replace all saved sets?</h3>
+        <p>
+          This removes <strong>every</strong> set saved in your schedule on this device and replaces them with the
+          imported list. Meetup pins are not changed. You cannot undo this here.
+        </p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="import-replace-schedule-cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="import-replace-schedule-confirm">Replace all</button>
         </div>
       </div>
     </dialog>

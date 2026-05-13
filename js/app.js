@@ -6,6 +6,8 @@
   const SHARE_PREFIX = "m=";
   /** Legacy fragment still accepted on import (`#share=…`). */
   const LEGACY_SHARE_PREFIX = "share=";
+  /** Compact schedule share links (`#sch=…`) — saved set ids only, gzip+base64url like meetups. */
+  const SCHEDULE_SHARE_PREFIX = "sch=";
   const SPLIT_PX_KEY = "edc2026_split_px";
   /** "dark" | "light" — site-wide UI; online basemap follows (CARTO vs OSM). */
   const SITE_THEME_KEY = "edc2026_site_theme";
@@ -17,6 +19,9 @@
   const WALK_METERS_PER_MINUTE = 62; // ~2.3 mph in dense festival crowds
   const WALK_BUFFER_MINUTES = 5;
   const MIN_TRANSITION_MINUTES = 2;
+  /** Next set starts at least this long after current set start → Leave By can relax to start + 1h (flexible). */
+  const DECENT_GAP_BETWEEN_STARTS_MS = 90 * 60000;
+  const FLEXIBLE_LEAVE_AFTER_START_MS = 60 * 60000;
 
   /** Directory URL of the app (works at site root or under a path like /edc/). */
   function getAssetBaseUrl() {
@@ -216,6 +221,20 @@
     formImport: document.getElementById("form-import"),
     importReplaceCancel: document.getElementById("import-replace-cancel"),
     importReplaceConfirm: document.getElementById("import-replace-confirm"),
+    dlgShareSchedule: document.getElementById("dlg-share-schedule"),
+    inpShareScheduleUrl: document.getElementById("inp-share-schedule-url"),
+    btnCopyScheduleLink: document.getElementById("btn-copy-schedule-link"),
+    btnSystemShareSchedule: document.getElementById("btn-system-share-schedule"),
+    scheduleShareClose: document.getElementById("schedule-share-close"),
+    dlgImportSchedule: document.getElementById("dlg-import-schedule"),
+    formImportSchedule: document.getElementById("form-import-schedule"),
+    inpImportSchedule: document.getElementById("inp-import-schedule"),
+    importScheduleCancel: document.getElementById("import-schedule-cancel"),
+    dlgImportReplaceSchedule: document.getElementById("dlg-import-replace-schedule"),
+    importReplaceScheduleCancel: document.getElementById("import-replace-schedule-cancel"),
+    importReplaceScheduleConfirm: document.getElementById("import-replace-schedule-confirm"),
+    btnScheduleShare: document.getElementById("btn-schedule-share"),
+    btnScheduleImport: document.getElementById("btn-schedule-import"),
     toast: document.getElementById("toast"),
     tabMeetups: document.getElementById("tab-meetups"),
     tabVenue: document.getElementById("tab-venue"),
@@ -285,6 +304,8 @@
   let navDebugEnabled = false;
   /** Pins waiting for Replace-all confirmation (`dlg-import-replace`). */
   let importReplacePendingPins = null;
+  /** Set ids waiting for Replace-all schedule confirmation (`dlg-import-replace-schedule`). */
+  let importReplacePendingScheduleIds = null;
   /** Coalesce compass DOM updates to one per animation frame. */
   let navReadoutRaf = null;
   let orientationHooked = false;
@@ -1069,6 +1090,7 @@
       let walkMinutes = null;
       let leaveByMs = null;
       let transitTight = false;
+      let leaveFlexible = false;
       if (next && Number.isFinite(set.stageLat) && Number.isFinite(set.stageLng) && Number.isFinite(next.stageLat) && Number.isFinite(next.stageLng)) {
         const distMeters = haversineM({ lat: set.stageLat, lng: set.stageLng }, { lat: next.stageLat, lng: next.stageLng });
         walkMinutes = Math.max(
@@ -1076,8 +1098,22 @@
           Math.ceil(distMeters / WALK_METERS_PER_MINUTE + WALK_BUFFER_MINUTES)
         );
         const hardEnd = Number.isFinite(set.endMs) ? set.endMs : set.startMs + DEFAULT_SET_MINUTES * 60000;
-        leaveByMs = Math.min(hardEnd, next.startMs - walkMinutes * 60000);
-        transitTight = leaveByMs < set.startMs;
+        const mustLeaveBy = next.startMs - walkMinutes * 60000;
+        const gapBetweenStarts = next.startMs - set.startMs;
+        const idealFlexible = set.startMs + FLEXIBLE_LEAVE_AFTER_START_MS;
+        if (
+          gapBetweenStarts >= DECENT_GAP_BETWEEN_STARTS_MS &&
+          idealFlexible <= mustLeaveBy &&
+          idealFlexible <= hardEnd
+        ) {
+          leaveByMs = idealFlexible;
+          leaveFlexible = true;
+          transitTight = false;
+        } else {
+          leaveByMs = Math.min(hardEnd, mustLeaveBy);
+          leaveFlexible = false;
+          transitTight = leaveByMs < set.startMs;
+        }
       }
       return {
         set,
@@ -1085,6 +1121,7 @@
         walkMinutes,
         leaveByMs,
         transitTight,
+        leaveFlexible,
         hasConflict: conflictsById.has(set.id),
       };
     });
@@ -1143,12 +1180,20 @@
         if (!Number.isFinite(entry.leaveByMs) || !Number.isFinite(entry.walkMinutes)) {
           return "Leave by: unavailable (missing stage route)";
         }
+        if (entry.leaveFlexible) {
+          return "Leave by: " + formatScheduleTime(entry.leaveByMs) + " (flexible)";
+        }
         if (entry.transitTight) {
           return "Leave by: " + formatScheduleTime(entry.leaveByMs) + " (tight transfer)";
         }
         return "Leave by: " + formatScheduleTime(entry.leaveByMs) + " (" + entry.walkMinutes + " min walk)";
       })();
+      const conflictChip =
+        entry.hasConflict ?
+          '<div class="schedule-conflict-chip" role="status">Overlapping set</div>'
+        : "";
       li.innerHTML = `
+        ${conflictChip}
         <div class="schedule-row">
           <div class="schedule-name"></div>
           <div class="schedule-actions">
@@ -1215,8 +1260,11 @@
       const li = document.createElement("li");
       li.className = "schedule-item";
       li.dataset.selected = selected ? "true" : "false";
-      li.dataset.conflict = selected && conflictIds.has(set.id) ? "true" : "false";
+      const isConflict = selected && conflictIds.has(set.id);
+      li.dataset.conflict = isConflict ? "true" : "false";
+      const conflictChip = isConflict ? '<div class="schedule-conflict-chip" role="status">Overlapping set</div>' : "";
       li.innerHTML = `
+        ${conflictChip}
         <div class="schedule-row">
           <div class="schedule-name"></div>
           <div class="schedule-actions">
@@ -2333,6 +2381,23 @@
     return b64 || null;
   }
 
+  function extractScheduleShareB64FromAny(str) {
+    if (!str) return null;
+    const trimmed = str.trim();
+    let b64 = null;
+    const hashIdx = trimmed.indexOf("#");
+    if (hashIdx >= 0) {
+      const frag = trimmed.slice(hashIdx + 1);
+      if (frag.startsWith(SCHEDULE_SHARE_PREFIX)) b64 = frag.slice(SCHEDULE_SHARE_PREFIX.length);
+    }
+    if (!b64 && trimmed.startsWith(SCHEDULE_SHARE_PREFIX)) b64 = trimmed.slice(SCHEDULE_SHARE_PREFIX.length);
+    if (!b64) {
+      const m = trimmed.match(/[?&#]sch=([^&]+)/);
+      if (m) b64 = decodeURIComponent(m[1]);
+    }
+    return b64 || null;
+  }
+
   function pinsToWireV3(pins) {
     return pins.map((p, i) => {
       const lat = Number(p.lat);
@@ -2372,8 +2437,16 @@
     return null;
   }
 
-  async function extractSharePayload(str) {
-    const b64 = extractShareB64FromAny(str);
+  function decodeScheduleShareData(data) {
+    if (!data) return null;
+    if (data.v === 1 && Array.isArray(data.s)) {
+      const out = data.s.map(String).filter((id) => id && id.length > 0 && id.length < 200);
+      return out.length ? out : null;
+    }
+    return null;
+  }
+
+  async function decodeUrlSafeB64ToJson(b64) {
     if (!b64) return null;
     let bytes;
     try {
@@ -2395,13 +2468,23 @@
     } else {
       jsonStr = new TextDecoder().decode(bytes);
     }
-    let data;
     try {
-      data = JSON.parse(jsonStr);
+      return JSON.parse(jsonStr);
     } catch {
       return null;
     }
+  }
+
+  async function extractSharePayload(str) {
+    const b64 = extractShareB64FromAny(str);
+    const data = await decodeUrlSafeB64ToJson(b64);
     return decodeShareDataToPins(data);
+  }
+
+  async function extractScheduleSharePayload(str) {
+    const b64 = extractScheduleShareB64FromAny(str);
+    const data = await decodeUrlSafeB64ToJson(b64);
+    return decodeScheduleShareData(data);
   }
 
   async function encodeShareTokenAsync(pins) {
@@ -2441,6 +2524,35 @@
           : location.pathname.replace(/\/?$/, "/index.html");
     const token = await encodeShareTokenAsync(loadPins());
     return base + "#" + SHARE_PREFIX + token;
+  }
+
+  async function encodeScheduleShareTokenAsync(setIds) {
+    const unique = [...new Set((setIds || []).map(String))]
+      .filter((id) => id && id.length < 200)
+      .sort();
+    const compact = { v: 1, s: unique };
+    const json = JSON.stringify(compact);
+    const utf8 = new TextEncoder().encode(json);
+    if (typeof CompressionStream === "undefined" || utf8.length < 140) return bytesToBase64Url(utf8);
+    try {
+      const stream = new Blob([utf8]).stream().pipeThrough(new CompressionStream("gzip"));
+      const gzBuf = await new Response(stream).arrayBuffer();
+      const gz = new Uint8Array(gzBuf);
+      if (gz.length + 28 < utf8.length) return bytesToBase64Url(gz);
+    } catch (_) {}
+    return bytesToBase64Url(utf8);
+  }
+
+  async function buildScheduleShareUrl() {
+    const base =
+      location.origin && location.origin !== "null"
+        ? shareUrlBase()
+        : location.pathname.split("/").pop() === "index.html"
+          ? location.pathname
+          : location.pathname.replace(/\/?$/, "/index.html");
+    const ids = Array.from(selectedScheduleSetIds);
+    const token = await encodeScheduleShareTokenAsync(ids);
+    return base + "#" + SCHEDULE_SHARE_PREFIX + token;
   }
 
   function normalizeMeetupName(name) {
@@ -2522,6 +2634,26 @@
     history.replaceState(null, "", location.pathname + location.search);
   }
 
+  function importScheduleFromPayload(rawIds, mode) {
+    const valid = new Set((allScheduleSets || []).map((s) => s.id));
+    const cleaned = [...new Set((rawIds || []).map(String))].filter((id) => id && id.length < 200 && valid.has(id));
+    if (!cleaned.length) {
+      toast("No matching sets in that link for this schedule");
+      history.replaceState(null, "", location.pathname + location.search);
+      return;
+    }
+    if (mode === "replace") {
+      selectedScheduleSetIds.clear();
+      cleaned.forEach((id) => selectedScheduleSetIds.add(id));
+    } else {
+      cleaned.forEach((id) => selectedScheduleSetIds.add(id));
+    }
+    saveScheduleSelection();
+    renderScheduleTab();
+    toast(mode === "replace" ? "Replaced with imported schedule" : "Merged schedule sets");
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+
   async function tryConsumeHashImport() {
     const h = location.hash;
     if (!h || (!h.includes(SHARE_PREFIX) && !h.includes(LEGACY_SHARE_PREFIX))) return;
@@ -2530,6 +2662,20 @@
     const ok = window.confirm("This link includes " + pins.length + " meetup pin(s). Merge into your saved pins?");
     if (ok) importPinsFromPayload(pins, "merge");
     else history.replaceState(null, "", location.pathname + location.search);
+  }
+
+  async function tryConsumeScheduleHashImport() {
+    const h = location.hash;
+    if (!h || !h.includes(SCHEDULE_SHARE_PREFIX)) return;
+    const ids = await extractScheduleSharePayload(h);
+    if (!ids || !ids.length) return;
+    const ok = window.confirm(
+      "This link includes " + ids.length + " saved set(s). Merge them into your schedule on this device?"
+    );
+    if (ok) {
+      importScheduleFromPayload(ids, "merge");
+      setSheetTab("schedule");
+    } else history.replaceState(null, "", location.pathname + location.search);
   }
 
   function initScheduleWalkTooltipText() {
@@ -2549,7 +2695,10 @@
       " minutes between sets. " +
       "The CSV has start times only: each set is assumed to end when the next act starts on the same stage, or after " +
       DEFAULT_SET_MINUTES +
-      " minutes if there is no later slot.";
+      " minutes if there is no later slot. " +
+      "If your next saved set starts at least " +
+      DECENT_GAP_BETWEEN_STARTS_MS / 60000 +
+      " minutes after this one, Leave By can show one hour after this set's start (flexible), as long as that still fits the inferred set end and walking time to the next stage.";
   }
 
   function closeScheduleWalkTooltip() {
@@ -2946,6 +3095,109 @@
       });
     }
 
+    if (els.btnScheduleShare) {
+      els.btnScheduleShare.addEventListener("click", async () => {
+        if (!selectedScheduleSetIds.size) {
+          toast("Save at least one set before sharing");
+          return;
+        }
+        if (els.inpShareScheduleUrl) els.inpShareScheduleUrl.value = "…";
+        if (els.dlgShareSchedule) els.dlgShareSchedule.showModal();
+        try {
+          if (els.inpShareScheduleUrl) els.inpShareScheduleUrl.value = await buildScheduleShareUrl();
+        } catch {
+          if (els.inpShareScheduleUrl) els.inpShareScheduleUrl.value = "";
+          toast("Could not build schedule link");
+        }
+      });
+    }
+    if (els.btnCopyScheduleLink && els.inpShareScheduleUrl) {
+      els.btnCopyScheduleLink.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(els.inpShareScheduleUrl.value);
+          toast("Link copied");
+        } catch {
+          els.inpShareScheduleUrl.select();
+          document.execCommand("copy");
+          toast("Link copied");
+        }
+      });
+    }
+    if (els.btnSystemShareSchedule && els.inpShareScheduleUrl) {
+      els.btnSystemShareSchedule.addEventListener("click", async () => {
+        const url = els.inpShareScheduleUrl.value;
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: "EDC 2026 schedule",
+              text: "Saved sets for EDC Las Vegas 2026",
+              url,
+            });
+          } catch {
+            /* user cancelled */
+          }
+        } else {
+          toast("Use Copy link on this device");
+        }
+      });
+    }
+    if (els.scheduleShareClose && els.dlgShareSchedule) {
+      els.scheduleShareClose.addEventListener("click", () => els.dlgShareSchedule.close());
+    }
+
+    if (els.btnScheduleImport) {
+      els.btnScheduleImport.addEventListener("click", () => {
+        if (els.inpImportSchedule) els.inpImportSchedule.value = "";
+        if (els.dlgImportSchedule) els.dlgImportSchedule.showModal();
+      });
+    }
+    if (els.importScheduleCancel && els.dlgImportSchedule) {
+      els.importScheduleCancel.addEventListener("click", () => els.dlgImportSchedule.close());
+    }
+    if (els.formImportSchedule) {
+      els.formImportSchedule.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const sub = e.submitter;
+        const mode = sub && sub.value === "replace" ? "replace" : "merge";
+        let ids;
+        try {
+          ids = await extractScheduleSharePayload(els.inpImportSchedule ? els.inpImportSchedule.value : "");
+        } catch {
+          ids = null;
+        }
+        if (ids && ids.length) {
+          if (mode === "replace") {
+            importReplacePendingScheduleIds = ids;
+            if (els.dlgImportReplaceSchedule) els.dlgImportReplaceSchedule.showModal();
+            return;
+          }
+          importScheduleFromPayload(ids, mode);
+        } else toast("Could not read schedule from that text");
+        if (els.dlgImportSchedule) els.dlgImportSchedule.close();
+      });
+    }
+    if (els.importReplaceScheduleCancel && els.dlgImportReplaceSchedule) {
+      els.importReplaceScheduleCancel.addEventListener("click", () => {
+        importReplacePendingScheduleIds = null;
+        els.dlgImportReplaceSchedule.close();
+      });
+    }
+    if (els.importReplaceScheduleConfirm && els.dlgImportReplaceSchedule) {
+      els.importReplaceScheduleConfirm.addEventListener("click", () => {
+        const pending = importReplacePendingScheduleIds;
+        importReplacePendingScheduleIds = null;
+        els.dlgImportReplaceSchedule.close();
+        if (pending && pending.length) importScheduleFromPayload(pending, "replace");
+        if (els.dlgImportSchedule) els.dlgImportSchedule.close();
+      });
+    }
+    if (els.dlgImportSchedule) {
+      els.dlgImportSchedule.addEventListener("close", () => {
+        if (els.dlgImportReplaceSchedule && els.dlgImportReplaceSchedule.open) els.dlgImportReplaceSchedule.close();
+        importReplacePendingScheduleIds = null;
+      });
+    }
+
     if (els.compassToggleNav) {
       els.compassToggleNav.addEventListener("change", (e) => {
         if (e.target.checked) enableCompass();
@@ -3008,6 +3260,7 @@
     await tryConsumeHashImport();
     await loadFestivalPois();
     await loadFestivalSchedule();
+    await tryConsumeScheduleHashImport();
     if (map) map.invalidateSize();
   }
 
