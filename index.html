@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="theme-color" content="#ff2dbe" />
+    <meta name="description" content="EDC Las Vegas 2026 offline map, meetup pins, and compass navigation." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="EDC 2026" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+    <title>EDC Vegas 2026 · Offline</title>
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body>
+    <div id="map" aria-label="Festival map"></div>
+
+    <header class="app-header">
+      <span class="app-title">EDC VEGAS 2026</span>
+      <span id="offline-badge" class="offline-badge" data-state="pending">cache…</span>
+    </header>
+
+    <section class="sheet" aria-label="Meetup pins and tools">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="sheet-toolbar">
+        <button type="button" class="btn btn-primary" id="btn-center">Center on me</button>
+        <button type="button" class="btn" id="btn-pin">Drop pin here</button>
+        <button type="button" class="btn" id="btn-share">Share pins</button>
+        <button type="button" class="btn btn-ghost" id="btn-import">Import</button>
+        <button type="button" class="btn btn-ghost" id="btn-compass">Enable compass</button>
+      </div>
+      <div id="coord-strip" class="coord-strip">GPS: waiting for permission…</div>
+      <ul id="pin-list" class="pin-list" aria-live="polite"></ul>
+    </section>
+
+    <div id="nav-overlay" class="nav-overlay" data-open="false" aria-hidden="true">
+      <div class="nav-top">
+        <button type="button" class="btn btn-ghost" id="nav-close">Close</button>
+        <button type="button" class="btn" id="nav-map">Show on map</button>
+      </div>
+      <div class="nav-target">
+        <h2 id="nav-title">Meetup</h2>
+        <p id="nav-sub">Walking toward saved pin</p>
+      </div>
+      <div class="compass-stage">
+        <div class="compass-ring">
+          <span class="compass-n">N</span>
+          <div id="arrow-wrap" class="arrow-wrap">
+            <div class="arrow" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+      <div class="nav-stats">
+        <div id="nav-distance" class="nav-distance">—</div>
+        <div id="nav-bearing" class="nav-bearing">—</div>
+      </div>
+      <p id="nav-hint" class="nav-hint"></p>
+    </div>
+
+    <dialog id="dlg-name" class="modal">
+      <form class="modal-body" id="form-name">
+        <h3>Name this meetup</h3>
+        <label for="inp-name">Shown in your pin list and when friends import your link.</label>
+        <p class="pin-hint" id="pin-hint"></p>
+        <input type="text" id="inp-name" maxlength="80" autocomplete="off" required placeholder="e.g. Kinetic 10pm" />
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="name-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="dlg-share" class="modal">
+      <div class="modal-body">
+        <h3>Share meetup pack</h3>
+        <p>
+          Friends open this link once online, then choose <strong>Add to home screen</strong> so the same map and pins
+          stay offline in their PWA.
+        </p>
+        <input type="text" id="inp-share-url" readonly />
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="btn-copy-link">Copy link</button>
+          <button type="button" class="btn btn-ghost" id="btn-system-share">Share…</button>
+          <button type="button" class="btn btn-ghost" id="share-close">Done</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="dlg-import" class="modal">
+      <form class="modal-body" id="form-import">
+        <h3>Import meetup pack</h3>
+        <p>Paste a share link or only the <code>#share=…</code> fragment.</p>
+        <input type="text" id="inp-import" autocomplete="off" placeholder="#share=…" />
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="import-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" name="mode" value="merge">Merge</button>
+          <button type="submit" class="btn btn-primary" name="mode" value="replace">Replace all</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status"></div>
+
+    <script src="/vendor/leaflet/leaflet.js"></script>
+    <script src="/js/app.js" defer></script>
+  </body>
+</html>
