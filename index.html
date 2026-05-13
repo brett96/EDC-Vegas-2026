@@ -19,24 +19,32 @@
     <link rel="stylesheet" href="/css/app.css" />
   </head>
   <body>
-    <div id="map" aria-label="Las Vegas Motor Speedway map"></div>
+    <div id="app-layout" class="app-layout">
+      <div id="map-stack" class="map-stack">
+        <header class="app-header">
+          <span class="app-title">EDC VEGAS 2026</span>
+          <span id="offline-badge" class="offline-badge" data-state="pending">cache…</span>
+        </header>
+        <div class="map-pane">
+          <div id="map" aria-label="Las Vegas Motor Speedway map"></div>
+          <div class="map-float" aria-label="Quick actions">
+            <button type="button" class="fab" id="btn-center-float" title="Center on me">⌖</button>
+            <button type="button" class="fab fab-accent" id="btn-pin-float" title="Drop pin here">+</button>
+          </div>
+        </div>
+      </div>
 
-    <div class="map-float" aria-label="Quick actions">
-      <button type="button" class="fab" id="btn-center-float" title="Center on me">⌖</button>
-      <button type="button" class="fab fab-accent" id="btn-pin-float" title="Drop pin here">+</button>
-    </div>
+      <div
+        id="split-splitter"
+        class="split-splitter"
+        role="separator"
+        tabindex="0"
+        aria-orientation="horizontal"
+        aria-label="Drag up or down to resize the list panel"
+      ></div>
 
-    <header class="app-header">
-      <span class="app-title">EDC VEGAS 2026</span>
-      <span id="offline-badge" class="offline-badge" data-state="pending">cache…</span>
-    </header>
-
-    <section id="main-sheet" class="sheet" data-expanded="false" aria-label="Meetups and venue map">
-      <button type="button" class="sheet-handle" id="sheet-handle" aria-label="Expand or shrink panel">
-        <span class="sheet-handle-bar" aria-hidden="true"></span>
-        <span class="sheet-handle-hint">List &amp; tools</span>
-      </button>
-      <div class="sheet-tabs" role="tablist" aria-label="Bottom panel">
+      <section id="main-sheet" class="sheet" aria-label="Meetups and venue map">
+      <div class="sheet-tabs" role="tablist" aria-label="List and tools">
         <button type="button" class="sheet-tab" role="tab" id="tab-meetups" aria-controls="panel-meetups" aria-selected="true">
           Meetups
         </button>
@@ -63,9 +71,10 @@
         <ul id="poi-list" class="pin-list poi-list" aria-live="polite"></ul>
       </div>
       <p class="map-attribution">
-        OpenStreetMap basemap (bundled tiles) · EDC venue pins from festival map coordinates (approximate) · © OSM contributors
+        Basemap: bundled CARTO dark tiles (© OpenStreetMap contributors, © CARTO) · Festival art overlay (approximate alignment) · Venue pins from festival map layout
       </p>
     </section>
+    </div>
 
     <div id="nav-overlay" class="nav-overlay" data-open="false" aria-hidden="true">
       <div class="nav-top">

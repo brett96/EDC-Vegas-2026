@@ -1,5 +1,5 @@
-/* Offline shell for EDC Vegas 2026 PWA — precache app shell + bundled OSM tiles */
-const CACHE = "edc-vegas-2026-v5";
+/* Offline shell — precache app shell, CARTO-derived bundled tiles, festival overlay JPG */
+const CACHE = "edc-vegas-2026-v7";
 
 const CORE_ASSETS = [
   "/",
@@ -9,6 +9,7 @@ const CORE_ASSETS = [
   "/js/app.js",
   "/data/festival-pois.json",
   "/data/tiles-manifest.json",
+  "/assets/edclv_2026_festival_map.jpg",
   "/vendor/leaflet/leaflet.js",
   "/vendor/leaflet/leaflet.css",
   "/vendor/leaflet/images/marker-icon.png",

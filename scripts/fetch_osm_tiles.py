@@ -1,10 +1,12 @@
 """
-Download OSM raster tiles for Las Vegas Motor Speedway (small bbox, zooms 14–16)
-for offline PWA use. Run once before deploy; respect https://operations.osmfoundation.org/policies/tiles/
+Prefetch CARTO basemap raster tiles (OSM-derived) for Las Vegas Motor Speedway
+for offline PWA hosting. Tiles are served only from your origin — browsers never
+hit public tile CDNs in production.
 
   python scripts/fetch_osm_tiles.py
 
-Tiles are written to tiles/{z}/{x}/{y}.png and paths listed in data/tiles-manifest.json
+Writes tiles/{z}/{x}/{y}.png and data/tiles-manifest.json
+See CARTO / OSM attribution in app map footer.
 """
 from __future__ import annotations
 
@@ -30,7 +32,6 @@ NORTH = MAP_CENTER_LAT + d_lat / 2
 WEST = MAP_CENTER_LNG - d_lng / 2
 EAST = MAP_CENTER_LNG + d_lng / 2
 
-# Pad bbox slightly so the tri-oval is comfortable on screen
 PAD = 0.00035
 SOUTH -= PAD
 WEST -= PAD
@@ -41,7 +42,10 @@ ZOOMS = (14, 15, 16)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TILES_DIR = os.path.join(ROOT, "tiles")
 MANIFEST = os.path.join(ROOT, "data", "tiles-manifest.json")
-UA = "EDC-Vegas-2026-Offline-PWA/1.0 (local tile prefetch; contact: self-hosted)"
+UA = "EDC-Vegas-2026-Offline-PWA/1.0 (one-time tile prefetch for bundled offline map)"
+
+# CARTO "dark_all" — suitable for night UI; data © OpenStreetMap contributors, design © CARTO
+CARTO_TEMPLATE = "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
 
 
 def latlon_to_tile(lat_deg: float, lon_deg: float, zoom: int) -> tuple[int, int]:
@@ -76,7 +80,7 @@ def main() -> None:
                 fp = os.path.join(path, f"{y}.png")
                 if os.path.isfile(fp) and os.path.getsize(fp) > 100:
                     continue
-                url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                url = CARTO_TEMPLATE.format(z=z, x=x, y=y)
                 req = urllib.request.Request(url, headers={"User-Agent": UA})
                 try:
                     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -86,7 +90,7 @@ def main() -> None:
                 except Exception as e:
                     print("FAIL", url, e)
                     raise
-                time.sleep(0.2)
+                time.sleep(0.15)
                 print("ok", z, x, y, len(data))
     urls.sort()
     with open(MANIFEST, "w", encoding="utf-8") as f:

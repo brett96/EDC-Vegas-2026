@@ -4,7 +4,9 @@
   const STORAGE_KEY = "edc2026_pins_v1";
   const SHARE_PREFIX = "share=";
   const POI_DATA_URL = "/data/festival-pois.json";
-  const OSM_TILE_URL = "/tiles/{z}/{x}/{y}.png";
+  const BASEMAP_TILE_URL = "/tiles/{z}/{x}/{y}.png";
+  const FESTIVAL_MAP_URL = "/assets/edclv_2026_festival_map.jpg";
+  const SPLIT_PX_KEY = "edc2026_split_px";
 
   /** LVMS infield center; north–south span chosen so 1080×1350 map matches tri-oval infield scale (approximate). */
   const MAP_CENTER = { lat: 36.27225, lng: -115.01145 };
@@ -110,8 +112,9 @@
     btnCompass: document.getElementById("btn-compass"),
     btnCenterFloat: document.getElementById("btn-center-float"),
     btnPinFloat: document.getElementById("btn-pin-float"),
+    splitter: document.getElementById("split-splitter"),
+    mapStack: document.getElementById("map-stack"),
     sheet: document.getElementById("main-sheet"),
-    sheetHandle: document.getElementById("sheet-handle"),
     navOverlay: document.getElementById("nav-overlay"),
     navClose: document.getElementById("nav-close"),
     navMap: document.getElementById("nav-map"),
@@ -299,21 +302,27 @@
       maxZoom: 19,
     });
 
-    L.tileLayer(OSM_TILE_URL, {
+    L.tileLayer(BASEMAP_TILE_URL, {
       minZoom: 14,
       maxZoom: 19,
       maxNativeZoom: 16,
       tileSize: 256,
       bounds: MAP_BOUNDS.pad(0.85),
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · bundled tiles',
+        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · offline',
+    }).addTo(map);
+
+    L.imageOverlay(FESTIVAL_MAP_URL, MAP_BOUNDS, {
+      opacity: 0.72,
+      interactive: false,
+      className: "festival-map-overlay",
     }).addTo(map);
 
     map.fitBounds(MAP_BOUNDS.pad(0.08));
 
-    userMarker = L.marker(MAP_BOUNDS.getCenter(), { icon: userIcon() }).addTo(map);
-    pinsLayer = L.layerGroup().addTo(map);
     poiLayer = L.layerGroup().addTo(map);
+    pinsLayer = L.layerGroup().addTo(map);
+    userMarker = L.marker(MAP_BOUNDS.getCenter(), { icon: userIcon() }).addTo(map);
   }
 
   function populatePoiCategoryFilter() {
@@ -747,22 +756,68 @@
     els.panelVenue.hidden = isMeet;
   }
 
-  function syncSheetLayout() {
+  function clampPanelPx(px) {
+    const min = 120;
+    const max = Math.floor(window.innerHeight * 0.72);
+    return Math.max(min, Math.min(max, px));
+  }
+
+  function applyStoredPanelHeight() {
     if (!els.sheet) return;
-    const full = els.sheet.dataset.expanded === "true";
-    document.documentElement.dataset.sheetSize = full ? "full" : "compact";
+    const raw = localStorage.getItem(SPLIT_PX_KEY);
+    let px = raw ? parseInt(raw, 10) : 240;
+    if (Number.isNaN(px)) px = 240;
+    els.sheet.style.height = clampPanelPx(px) + "px";
+    if (map) requestAnimationFrame(() => map.invalidateSize());
+  }
+
+  function onWindowResizePanel() {
+    if (!els.sheet) return;
+    els.sheet.style.height = clampPanelPx(els.sheet.offsetHeight) + "px";
+    if (map) map.invalidateSize();
+  }
+
+  function wireSplitter() {
+    const sp = els.splitter;
+    if (!sp || !els.sheet) return;
+    let drag = null;
+    sp.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      drag = { y0: e.clientY, h0: els.sheet.offsetHeight };
+      sp.setPointerCapture(e.pointerId);
+    });
+    sp.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      const nh = drag.h0 + (e.clientY - drag.y0);
+      els.sheet.style.height = clampPanelPx(nh) + "px";
+      if (map) map.invalidateSize();
+    });
+    function finish(e) {
+      if (drag && els.sheet) localStorage.setItem(SPLIT_PX_KEY, String(els.sheet.offsetHeight));
+      drag = null;
+      try {
+        if (e && sp.hasPointerCapture(e.pointerId)) sp.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+      if (map) map.invalidateSize();
+    }
+    sp.addEventListener("pointerup", finish);
+    sp.addEventListener("pointercancel", finish);
+    sp.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        const cur = els.sheet.offsetHeight;
+        const step = e.shiftKey ? 40 : 12;
+        const next = clampPanelPx(cur + (e.key === "ArrowUp" ? -step : step));
+        els.sheet.style.height = next + "px";
+        localStorage.setItem(SPLIT_PX_KEY, String(next));
+        if (map) map.invalidateSize();
+        e.preventDefault();
+      }
+    });
   }
 
   function wireUi() {
     els.tabMeetups.addEventListener("click", () => setSheetTab("meetups"));
     els.tabVenue.addEventListener("click", () => setSheetTab("venue"));
-
-    if (els.sheetHandle && els.sheet) {
-      els.sheetHandle.addEventListener("click", () => {
-        els.sheet.dataset.expanded = els.sheet.dataset.expanded === "true" ? "false" : "true";
-        syncSheetLayout();
-      });
-    }
 
     els.poiSearch.addEventListener("input", () => renderPoiList());
     els.poiCat.addEventListener("change", () => renderPoiList());
@@ -870,13 +925,16 @@
       }
       closeNav();
     });
+
+    wireSplitter();
+    window.addEventListener("resize", onWindowResizePanel);
   }
 
   async function boot() {
+    applyStoredPanelHeight();
     initMap();
     registerSw();
     wireUi();
-    syncSheetLayout();
 
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: "/vendor/leaflet/images/marker-icon-2x.png",
@@ -890,6 +948,7 @@
     startGeolocation();
     tryConsumeHashImport();
     await loadFestivalPois();
+    if (map) map.invalidateSize();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
