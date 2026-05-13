@@ -1349,7 +1349,19 @@
   }
 
   function clampPanelPx(px) {
-    const min = 120;
+    // Keep enough room so the attribution footer can't overlap the panel content
+    // when the user drags the splitter to maximize the map.
+    const baseMin = 140;
+    let min = baseMin;
+    if (els.sheet) {
+      const tabs = els.sheet.querySelector(".sheet-tabs");
+      const footer = els.sheet.querySelector(".map-attribution");
+      const tabsH = tabs && tabs instanceof HTMLElement ? tabs.offsetHeight : 0;
+      const footerH = footer && footer instanceof HTMLElement ? footer.offsetHeight : 0;
+      const minPanelContent = 140; // enough to show at least a couple rows + avoid visual collision
+      min = Math.max(baseMin, tabsH + footerH + minPanelContent);
+    }
+
     const max = Math.floor(window.innerHeight * 0.72);
     return Math.max(min, Math.min(max, px));
   }
