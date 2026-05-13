@@ -209,6 +209,10 @@
     deletePinName: document.getElementById("delete-pin-name"),
     deletePinCancel: document.getElementById("delete-pin-cancel"),
     deletePinConfirm: document.getElementById("delete-pin-confirm"),
+    dlgDeleteScheduleSet: document.getElementById("dlg-delete-schedule-set"),
+    deleteScheduleSetName: document.getElementById("delete-schedule-set-name"),
+    deleteScheduleSetCancel: document.getElementById("delete-schedule-set-cancel"),
+    deleteScheduleSetConfirm: document.getElementById("delete-schedule-set-confirm"),
     dlgShare: document.getElementById("dlg-share"),
     inpShareUrl: document.getElementById("inp-share-url"),
     btnCopyLink: document.getElementById("btn-copy-link"),
@@ -1210,7 +1214,7 @@
       li.querySelector(".schedule-leave").textContent = leaveLine;
       li.querySelector('[data-a="toggle"]').addEventListener("click", (e) => {
         e.stopPropagation();
-        toggleScheduleSelection(set.id);
+        openDeleteScheduleSetConfirm(set.id);
       });
       wireScheduleMapButtons(li, set);
       els.scheduleItineraryList.appendChild(li);
@@ -1236,7 +1240,7 @@
       li.querySelector(".schedule-meta").textContent = makeScheduleSetMeta(set);
       li.querySelector('[data-a="toggle"]').addEventListener("click", (e) => {
         e.stopPropagation();
-        toggleScheduleSelection(set.id);
+        openDeleteScheduleSetConfirm(set.id);
       });
       wireScheduleMapButtons(li, set);
       els.scheduleItineraryList.appendChild(li);
@@ -1280,7 +1284,8 @@
       li.querySelector('[data-a="toggle"]').textContent = selected ? "Remove" : "Save";
       li.querySelector('[data-a="toggle"]').addEventListener("click", (e) => {
         e.stopPropagation();
-        toggleScheduleSelection(set.id);
+        if (selected) openDeleteScheduleSetConfirm(set.id);
+        else toggleScheduleSelection(set.id);
       });
       wireScheduleMapButtons(li, set);
       els.scheduleSetList.appendChild(li);
@@ -1869,6 +1874,15 @@
     els.deletePinName.textContent = p.name || "Meetup";
     els.dlgDeletePin.dataset.pinId = id;
     els.dlgDeletePin.showModal();
+  }
+
+  function openDeleteScheduleSetConfirm(setId) {
+    if (!els.dlgDeleteScheduleSet || !els.deleteScheduleSetName) return;
+    closeScheduleWalkTooltip();
+    const set = allScheduleSets.find((x) => x.id === setId);
+    els.deleteScheduleSetName.textContent = (set && set.artist) || "This set";
+    els.dlgDeleteScheduleSet.dataset.setId = setId;
+    els.dlgDeleteScheduleSet.showModal();
   }
 
   function openNavTo(target) {
@@ -2705,12 +2719,64 @@
     if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn) return;
     els.scheduleWalkTooltip.hidden = true;
     els.scheduleWalkInfoBtn.setAttribute("aria-expanded", "false");
+    clearScheduleWalkTooltipLayout();
+  }
+
+  function clearScheduleWalkTooltipLayout() {
+    if (!els.scheduleWalkTooltip) return;
+    ["position", "left", "top", "right", "bottom", "width", "maxWidth", "zIndex", "boxSizing"].forEach((prop) => {
+      els.scheduleWalkTooltip.style[prop] = "";
+    });
+  }
+
+  let scheduleWalkRepositionRaf = null;
+  function scheduleWalkRepositionSoon() {
+    if (!els.scheduleWalkTooltip || els.scheduleWalkTooltip.hidden) return;
+    if (scheduleWalkRepositionRaf != null) cancelAnimationFrame(scheduleWalkRepositionRaf);
+    scheduleWalkRepositionRaf = requestAnimationFrame(() => {
+      scheduleWalkRepositionRaf = null;
+      positionScheduleWalkTooltip();
+    });
+  }
+
+  function positionScheduleWalkTooltip() {
+    if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn || els.scheduleWalkTooltip.hidden) return;
+    const btn = els.scheduleWalkInfoBtn;
+    const tip = els.scheduleWalkTooltip;
+    const pad = 12;
+    const gap = 8;
+    const r = btn.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const maxW = Math.min(400, Math.max(220, vw - 2 * pad));
+    tip.style.boxSizing = "border-box";
+    tip.style.position = "fixed";
+    tip.style.width = maxW + "px";
+    tip.style.maxWidth = maxW + "px";
+    tip.style.zIndex = "1300";
+    tip.style.right = "auto";
+    tip.style.bottom = "auto";
+    const tw = tip.offsetWidth;
+    const th = tip.offsetHeight;
+    const centerX = r.left + r.width / 2;
+    let left = Math.round(centerX - tw / 2);
+    left = Math.max(pad, Math.min(left, vw - pad - tw));
+    let top = r.top - gap - th;
+    if (top < pad) top = r.bottom + gap;
+    if (top + th > vh - pad) top = Math.max(pad, vh - pad - th);
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
   }
 
   function openScheduleWalkTooltip() {
     if (!els.scheduleWalkTooltip || !els.scheduleWalkInfoBtn) return;
     els.scheduleWalkTooltip.hidden = false;
     els.scheduleWalkInfoBtn.setAttribute("aria-expanded", "true");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        positionScheduleWalkTooltip();
+      });
+    });
   }
 
   function toggleScheduleWalkTooltip() {
@@ -2740,6 +2806,9 @@
     });
     document.addEventListener("pointerdown", onDocPointerCloseScheduleWalk, true);
     window.addEventListener("keydown", onKeyCloseScheduleWalk);
+    window.addEventListener("resize", scheduleWalkRepositionSoon);
+    const scheduleScrollEl = document.getElementById("schedule-scroll");
+    if (scheduleScrollEl) scheduleScrollEl.addEventListener("scroll", scheduleWalkRepositionSoon, { passive: true });
   }
 
   function setSheetTab(which) {
@@ -3000,6 +3069,17 @@
         const id = els.dlgDeletePin.dataset.pinId;
         els.dlgDeletePin.close();
         if (id) removePin(id);
+      });
+    }
+
+    if (els.deleteScheduleSetCancel && els.dlgDeleteScheduleSet) {
+      els.deleteScheduleSetCancel.addEventListener("click", () => els.dlgDeleteScheduleSet.close());
+    }
+    if (els.deleteScheduleSetConfirm && els.dlgDeleteScheduleSet) {
+      els.deleteScheduleSetConfirm.addEventListener("click", () => {
+        const id = els.dlgDeleteScheduleSet.dataset.setId;
+        els.dlgDeleteScheduleSet.close();
+        if (id) toggleScheduleSelection(id);
       });
     }
 

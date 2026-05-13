@@ -633,17 +633,19 @@ html[data-site-theme="light"] .toggle-thumb {
 }
 
 .schedule-walk-tooltip {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  width: min(280px, calc(100vw - 48px));
+  /* position + inset set in JS (fixed) so the panel is not clipped by the sheet overflow */
+  position: fixed;
+  z-index: 1300;
+  box-sizing: border-box;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: rgba(18, 8, 32, 0.97);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-  z-index: 40;
   text-align: left;
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 html[data-site-theme="light"] .schedule-walk-tooltip {
@@ -664,6 +666,8 @@ html[data-site-theme="light"] .schedule-walk-tooltip {
   font-size: 0.74rem;
   line-height: 1.45;
   color: var(--muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .schedule-filters {
