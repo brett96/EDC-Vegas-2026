@@ -2,7 +2,10 @@
   "use strict";
 
   const STORAGE_KEY = "edc2026_pins_v1";
-  const SHARE_PREFIX = "share=";
+  /** Short hash fragment for new share links (`#m=…`). */
+  const SHARE_PREFIX = "m=";
+  /** Legacy fragment still accepted on import (`#share=…`). */
+  const LEGACY_SHARE_PREFIX = "share=";
   const SPLIT_PX_KEY = "edc2026_split_px";
 
   /** Directory URL of the app (works at site root or under a path like /edc/). */
@@ -220,6 +223,9 @@
   let geoWatchId = null;
   /** We pushed a history entry when opening nav so the device back button closes the overlay. */
   let navHistoryPushed = false;
+  /** While nav overlay is open, request a fresh GPS fix on this interval (ms). */
+  const NAV_GEO_POLL_MS = 2000;
+  let navGeoPollInterval = null;
   let navInterval = null;
   /** Throttle expensive minimap refits so GPS callbacks stay snappy. */
   let lastNavMiniMapFitAt = 0;
@@ -502,7 +508,8 @@
           : "raw_fix";
     const lines = [
       "Debug Readout",
-      "fix age: " + (fixAgeMs == null ? "n/a" : fixAgeMs + " ms"),
+      "fix age: " + (fixAgeMs == null ? "n/a" : fixAgeMs + " ms (expect ≤ ~" + NAV_GEO_POLL_MS + " ms while navigating)"),
+      "gps refresh while nav open: every " + NAV_GEO_POLL_MS + " ms",
       "accuracy: " + (accuracy == null ? "n/a" : "±" + accuracy + " m"),
       "gps speed: " + (speed == null ? "n/a" : speed.toFixed(2) + " m/s"),
       "gps heading: " + (gpsHeading == null ? "n/a" : Math.round(gpsHeading) + " deg"),
@@ -991,6 +998,20 @@
     els.dlgDeletePin.showModal();
   }
 
+  /** Periodic high-accuracy fix while navigation view is open (distance + map pin). */
+  function pollNavLocationWhileOpen() {
+    if (els.navOverlay.dataset.open !== "true") return;
+    if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== "function") return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (els.navOverlay.dataset.open !== "true") return;
+        onGeoSuccess(pos);
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    );
+  }
+
   function openNavTo(target) {
     if (map) map.closePopup();
     const wasClosed = els.navOverlay.dataset.open !== "true";
@@ -1028,6 +1049,13 @@
       updateNavReadout();
       updateNavMiniMap();
     }, 90);
+    if (navGeoPollInterval) {
+      clearInterval(navGeoPollInterval);
+      navGeoPollInterval = null;
+    }
+    if (navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === "function") {
+      navGeoPollInterval = setInterval(pollNavLocationWhileOpen, NAV_GEO_POLL_MS);
+    }
     requestAnimationFrame(() => {
       initNavMap();
       updateNavMiniMap();
@@ -1055,6 +1083,10 @@
     if (navInterval) {
       clearInterval(navInterval);
       navInterval = null;
+    }
+    if (navGeoPollInterval) {
+      clearInterval(navGeoPollInterval);
+      navGeoPollInterval = null;
     }
     if (navReadoutRaf != null) {
       cancelAnimationFrame(navReadoutRaf);
@@ -1454,7 +1486,27 @@
     toast("Pin saved on this device");
   }
 
-  function extractSharePayload(str) {
+  function bytesToBase64Url(u8) {
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < u8.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, Array.from(u8.subarray(i, i + chunk)));
+    }
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function base64UrlToBytes(b64) {
+    let norm = String(b64 || "")
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+    while (norm.length % 4) norm += "=";
+    const bin = atob(norm);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function extractShareB64FromAny(str) {
     if (!str) return null;
     const trimmed = str.trim();
     let b64 = null;
@@ -1462,29 +1514,104 @@
     if (hashIdx >= 0) {
       const frag = trimmed.slice(hashIdx + 1);
       if (frag.startsWith(SHARE_PREFIX)) b64 = frag.slice(SHARE_PREFIX.length);
+      else if (frag.startsWith(LEGACY_SHARE_PREFIX)) b64 = frag.slice(LEGACY_SHARE_PREFIX.length);
     }
     if (!b64 && trimmed.startsWith(SHARE_PREFIX)) b64 = trimmed.slice(SHARE_PREFIX.length);
+    if (!b64 && trimmed.startsWith(LEGACY_SHARE_PREFIX)) b64 = trimmed.slice(LEGACY_SHARE_PREFIX.length);
     if (!b64) {
-      const m = trimmed.match(/share=([^&]+)/);
+      const m = trimmed.match(/[?&#]m=([^&]+)/);
       if (m) b64 = decodeURIComponent(m[1]);
     }
-    if (!b64) return null;
-    try {
-      let norm = b64.replace(/-/g, "+").replace(/_/g, "/");
-      while (norm.length % 4) norm += "=";
-      const json = decodeURIComponent(escape(atob(norm)));
-      const data = JSON.parse(json);
-      if (data && data.v === 1 && Array.isArray(data.pins)) return data.pins;
-    } catch {
-      return null;
+    if (!b64) {
+      const m2 = trimmed.match(/[?&#]share=([^&]+)/);
+      if (m2) b64 = decodeURIComponent(m2[1]);
+    }
+    return b64 || null;
+  }
+
+  function pinsToWireV3(pins) {
+    return pins.map((p, i) => {
+      const lat = Number(p.lat);
+      const lng = Number(p.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return [normalizeMeetupName(p.name || "Meetup").slice(0, 80), 0, 0, i % PIN_COLORS.length];
+      }
+      let ci = PIN_COLORS.indexOf(p.color);
+      if (ci < 0) ci = i % PIN_COLORS.length;
+      return [normalizeMeetupName(p.name || "Meetup").slice(0, 80), Math.round(lat * 1e6), Math.round(lng * 1e6), ci];
+    });
+  }
+
+  function decodeShareDataToPins(data) {
+    if (!data) return null;
+    if (data.v === 1 && Array.isArray(data.pins)) return data.pins;
+    if (data.v === 3 && Array.isArray(data.p)) {
+      const out = [];
+      data.p.forEach((row, i) => {
+        if (!Array.isArray(row) || row.length < 4) return;
+        const name = normalizeMeetupName(row[0] || "Meetup");
+        const la = Number(row[1]);
+        const lo = Number(row[2]);
+        const ci = Number(row[3]);
+        if (!Number.isFinite(la) || !Number.isFinite(lo)) return;
+        const color = PIN_COLORS[(((Number.isFinite(ci) ? ci : i) % PIN_COLORS.length) + PIN_COLORS.length) % PIN_COLORS.length];
+        out.push({
+          id: uid(),
+          name,
+          lat: la / 1e6,
+          lng: lo / 1e6,
+          color,
+        });
+      });
+      return out.length ? out : null;
     }
     return null;
   }
 
-  function encodeSharePayload(pins) {
-    const body = JSON.stringify({ v: 1, pins: pins.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, color: p.color })) });
-    const b64 = btoa(unescape(encodeURIComponent(body)));
-    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  async function extractSharePayload(str) {
+    const b64 = extractShareB64FromAny(str);
+    if (!b64) return null;
+    let bytes;
+    try {
+      bytes = base64UrlToBytes(b64);
+    } catch {
+      return null;
+    }
+    if (!bytes || !bytes.length) return null;
+    let jsonStr;
+    if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      if (typeof DecompressionStream === "undefined") return null;
+      try {
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+        const out = await new Response(stream).arrayBuffer();
+        jsonStr = new TextDecoder().decode(out);
+      } catch {
+        return null;
+      }
+    } else {
+      jsonStr = new TextDecoder().decode(bytes);
+    }
+    let data;
+    try {
+      data = JSON.parse(jsonStr);
+    } catch {
+      return null;
+    }
+    return decodeShareDataToPins(data);
+  }
+
+  async function encodeShareTokenAsync(pins) {
+    const compact = { v: 3, p: pinsToWireV3(pins) };
+    const json = JSON.stringify(compact);
+    const utf8 = new TextEncoder().encode(json);
+    if (typeof CompressionStream === "undefined" || utf8.length < 140) return bytesToBase64Url(utf8);
+    try {
+      const stream = new Blob([utf8]).stream().pipeThrough(new CompressionStream("gzip"));
+      const gzBuf = await new Response(stream).arrayBuffer();
+      const gz = new Uint8Array(gzBuf);
+      if (gz.length + 28 < utf8.length) return bytesToBase64Url(gz);
+    } catch (_) {}
+    return bytesToBase64Url(utf8);
   }
 
   function shareUrlBase() {
@@ -1501,14 +1628,15 @@
     return u.href;
   }
 
-  function buildShareUrl() {
+  async function buildShareUrl() {
     const base =
       location.origin && location.origin !== "null"
         ? shareUrlBase()
         : location.pathname.split("/").pop() === "index.html"
           ? location.pathname
           : location.pathname.replace(/\/?$/, "/index.html");
-    return base + "#" + SHARE_PREFIX + encodeSharePayload(loadPins());
+    const token = await encodeShareTokenAsync(loadPins());
+    return base + "#" + SHARE_PREFIX + token;
   }
 
   function normalizeMeetupName(name) {
@@ -1590,10 +1718,10 @@
     history.replaceState(null, "", location.pathname + location.search);
   }
 
-  function tryConsumeHashImport() {
+  async function tryConsumeHashImport() {
     const h = location.hash;
-    if (!h || !h.includes(SHARE_PREFIX)) return;
-    const pins = extractSharePayload(h);
+    if (!h || (!h.includes(SHARE_PREFIX) && !h.includes(LEGACY_SHARE_PREFIX))) return;
+    const pins = await extractSharePayload(h);
     if (!pins || !pins.length) return;
     const ok = window.confirm("This link includes " + pins.length + " meetup pin(s). Merge into your saved pins?");
     if (ok) importPinsFromPayload(pins, "merge");
@@ -1841,14 +1969,20 @@
       });
     }
 
-    els.btnShare.addEventListener("click", () => {
+    els.btnShare.addEventListener("click", async () => {
       const pins = loadPins();
       if (!pins.length) {
         toast("Add at least one pin before sharing");
         return;
       }
-      els.inpShareUrl.value = buildShareUrl();
+      els.inpShareUrl.value = "…";
       els.dlgShare.showModal();
+      try {
+        els.inpShareUrl.value = await buildShareUrl();
+      } catch {
+        els.inpShareUrl.value = "";
+        toast("Could not build share link");
+      }
     });
 
     els.btnCopyLink.addEventListener("click", async () => {
@@ -1884,11 +2018,16 @@
 
     els.importCancel.addEventListener("click", () => els.dlgImport.close());
 
-    els.formImport.addEventListener("submit", (e) => {
+    els.formImport.addEventListener("submit", async (e) => {
       e.preventDefault();
       const sub = e.submitter;
       const mode = sub && sub.value === "replace" ? "replace" : "merge";
-      const pins = extractSharePayload(els.inpImport.value);
+      let pins;
+      try {
+        pins = await extractSharePayload(els.inpImport.value);
+      } catch {
+        pins = null;
+      }
       if (pins) {
         if (mode === "replace") {
           importReplacePendingPins = pins;
@@ -1979,7 +2118,7 @@
     syncMarkersFromPins(pins);
     renderPinList();
     startGeolocation();
-    tryConsumeHashImport();
+    await tryConsumeHashImport();
     await loadFestivalPois();
     if (map) map.invalidateSize();
   }
