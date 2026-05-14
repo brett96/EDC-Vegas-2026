@@ -703,6 +703,14 @@ html[data-site-theme="light"] .schedule-scroll .schedule-section--allsets .sched
   color: var(--muted);
 }
 
+.schedule-panel[data-saved-only="1"] .schedule-section--allsets {
+  display: none !important;
+}
+
+.footer-install-wrap[hidden] {
+  display: none !important;
+}
+
 .schedule-section-head .schedule-section-title {
   margin: 0;
   flex: 1 1 auto;

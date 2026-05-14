@@ -187,6 +187,7 @@
     btnCenterFloat: document.getElementById("btn-center-float"),
     btnEdcFloat: document.getElementById("btn-edc-float"),
     installLink: document.getElementById("install-link"),
+    footerInstallWrap: document.getElementById("footer-install-wrap"),
     footerCacheVersion: document.getElementById("footer-cache-version"),
     compassToggleNav: document.getElementById("compass-toggle-nav"),
     splitter: document.getElementById("split-splitter"),
@@ -384,31 +385,33 @@
 
   /**
    * Stage / major zones in **edc_map.jpg** artwork (u, v). Each `uvRing` is a
-   * simple polygon in file space (0–1, origin top-left). Regions may overlap in
-   * UV where the printed map physically overlaps (stacked translucency is fine).
-   * Lat/lng comes from `uvToLatLng` after `ARTWORK_ROTATION_DEG`.
+   * simple polygon in file space (0–1, origin top-left). Rings are drawn in
+   * order with translucent fill; adjacent regions intentionally share slightly
+   * thickened boundary bands so inner gaps on the artwork stay covered without
+   * changing overall stage placement. Lat/lng comes from `uvToLatLng` after
+   * `ARTWORK_ROTATION_DEG`.
    */
   const STAGE_UV_ZONES = [
     {
       name: "bionicJUNGLE",
       fill: "#7dff9a",
       uvRing: [
-        [0.04, 0.06],
-        [0.36, 0.04],
-        [0.42, 0.22],
-        [0.28, 0.26],
-        [0.08, 0.28],
+        [0.03, 0.06],
+        [0.36, 0.035],
+        [0.435, 0.22],
+        [0.27, 0.27],
+        [0.07, 0.29],
       ],
     },
     {
       name: "stereoBLOOM",
       fill: "#ffd400",
       uvRing: [
-        [0.28, 0.26],
-        [0.42, 0.22],
-        [0.44, 0.24],
-        [0.38, 0.38],
-        [0.24, 0.4],
+        [0.27, 0.265],
+        [0.435, 0.22],
+        [0.445, 0.24],
+        [0.39, 0.395],
+        [0.23, 0.41],
       ],
     },
     {
@@ -418,116 +421,116 @@
         [0.42, 0.22],
         [0.44, 0.06],
         [0.56, 0.04],
-        [0.56, 0.2],
-        [0.5, 0.22],
+        [0.56, 0.33],
+        [0.48, 0.23],
       ],
     },
     {
       name: "quantumVALLEY",
       fill: "#c86bff",
       uvRing: [
-        [0.56, 0.04],
-        [0.9, 0.06],
-        [0.9, 0.14],
-        [0.88, 0.32],
-        [0.56, 0.32],
+        [0.555, 0.04],
+        [0.91, 0.055],
+        [0.91, 0.145],
+        [0.89, 0.33],
+        [0.555, 0.33],
       ],
     },
     {
       name: "cosmicMEADOW",
       fill: "#6eb5ff",
       uvRing: [
-        [0.04, 0.32],
-        [0.24, 0.4],
-        [0.34, 0.5],
-        [0.36, 0.5],
-        [0.18, 0.52],
-        [0.04, 0.48],
+        [0.032, 0.31],
+        [0.245, 0.405],
+        [0.355, 0.525],
+        [0.385, 0.525],
+        [0.168, 0.538],
+        [0.032, 0.482],
       ],
     },
     {
       name: "Rainbow Bazaar",
       fill: "#dda0dd",
       uvRing: [
-        [0.4, 0.36],
-        [0.54, 0.34],
-        [0.56, 0.48],
-        [0.4, 0.48],
-        [0.4, 0.4],
+        [0.378, 0.35],
+        [0.558, 0.332],
+        [0.568, 0.492],
+        [0.388, 0.492],
+        [0.382, 0.398],
       ],
     },
     {
       name: "neonGARDEN",
       fill: "#39ff14",
       uvRing: [
-        [0.56, 0.32],
-        [0.88, 0.32],
-        [0.9, 0.46],
-        [0.9, 0.605],
-        [0.74, 0.605],
-        [0.58, 0.605],
-        [0.56, 0.48],
+        [0.555, 0.31],
+        [0.895, 0.31],
+        [0.912, 0.455],
+        [0.912, 0.625],
+        [0.725, 0.625],
+        [0.565, 0.625],
+        [0.555, 0.475],
       ],
     },
     {
       name: "Downtown EDC",
       fill: "#9a8ab8",
       uvRing: [
-        [0.36, 0.5],
-        [0.56, 0.48],
-        [0.56, 0.64],
-        [0.36, 0.64],
+        [0.335, 0.49],
+        [0.565, 0.47],
+        [0.57, 0.658],
+        [0.335, 0.658],
       ],
     },
     {
       name: "Camp EDC",
       fill: "#88aaff",
       uvRing: [
-        [0.02, 0.04],
-        [0.14, 0.03],
-        [0.16, 0.17],
-        [0.10, 0.19],
-        [0.02, 0.14],
+        [0.015, 0.035],
+        [0.142, 0.025],
+        [0.165, 0.175],
+        [0.095, 0.195],
+        [0.015, 0.14],
       ],
     },
     {
       name: "wasteLAND",
       fill: "#ff9e40",
       uvRing: [
-        [0.04, 0.64],
-        [0.22, 0.63],
-        [0.34, 0.64],
-        [0.36, 0.76],
-        [0.32, 0.9],
-        [0.1, 0.93],
-        [0.06, 0.94],
-        [0.04, 0.78],
+        [0.032, 0.625],
+        [0.235, 0.618],
+        [0.365, 0.618],
+        [0.378, 0.77],
+        [0.325, 0.915],
+        [0.088, 0.94],
+        [0.048, 0.95],
+        [0.03, 0.768],
       ],
     },
     {
       name: "bassPOD",
       fill: "#00f5ff",
       uvRing: [
-        [0.36, 0.64],
-        [0.56, 0.64],
-        [0.56, 0.86],
-        [0.52, 0.9],
-        [0.4, 0.9],
-        [0.36, 0.8],
+        [0.335, 0.62],
+        [0.568, 0.62],
+        [0.568, 0.885],
+        [0.518, 0.925],
+        [0.388, 0.925],
+        [0.335, 0.798],
       ],
     },
     {
       name: "circuitGROUNDS",
       fill: "#ff6bc4",
       uvRing: [
-        [0.56, 0.615],
-        [0.72, 0.615],
-        [0.88, 0.615],
-        [0.9, 0.78],
-        [0.88, 0.92],
-        [0.7, 0.93],
-        [0.58, 0.94],
-        [0.56, 0.8],
+        [0.552, 0.602],
+        [0.735, 0.602],
+        [0.892, 0.602],
+        [0.912, 0.778],
+        [0.888, 0.932],
+        [0.688, 0.942],
+        [0.572, 0.948],
+        [0.552, 0.798],
       ],
     },
   ];
@@ -1308,6 +1311,9 @@
   }
 
   function renderScheduleTab() {
+    if (els.panelSchedule && els.scheduleSelectedOnly) {
+      els.panelSchedule.dataset.savedOnly = els.scheduleSelectedOnly.checked ? "1" : "";
+    }
     if (els.scheduleCount) els.scheduleCount.textContent = String(selectedScheduleSetIds.size);
     const plan = computeSchedulePlan();
     if (els.scheduleConflictSummary) {
@@ -2718,6 +2724,34 @@
     if (els.panelSchedule) els.panelSchedule.hidden = !isSchedule;
   }
 
+  function isPwaStandaloneDisplay() {
+    try {
+      if (window.matchMedia("(display-mode: standalone)").matches) return true;
+      if (window.matchMedia("(display-mode: fullscreen)").matches) return true;
+      if (window.matchMedia("(display-mode: minimal-ui)").matches) return true;
+    } catch (_) {}
+    return !!(typeof navigator !== "undefined" && navigator.standalone === true);
+  }
+
+  function updateFooterInstallFragmentVisibility() {
+    const wrap = els.footerInstallWrap;
+    if (!wrap) return;
+    wrap.hidden = isPwaStandaloneDisplay();
+  }
+
+  function wireFooterInstallVisibility() {
+    updateFooterInstallFragmentVisibility();
+    window.addEventListener("appinstalled", updateFooterInstallFragmentVisibility);
+    try {
+      const mq = window.matchMedia("(display-mode: standalone)");
+      if (mq && typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", updateFooterInstallFragmentVisibility);
+      } else if (mq && typeof mq.addListener === "function") {
+        mq.addListener(updateFooterInstallFragmentVisibility);
+      }
+    } catch (_) {}
+  }
+
   function clampPanelPx(px) {
     // Keep enough room so the attribution footer can't overlap the panel content
     // when the user drags the splitter to maximize the map.
@@ -3211,6 +3245,7 @@
 
   async function boot() {
     applyStoredPanelHeight();
+    wireFooterInstallVisibility();
     initMap();
     registerSw();
     refreshFooterCacheVersion();
