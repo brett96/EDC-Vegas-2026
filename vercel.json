@@ -1,6 +1,15 @@
 {
   "headers": [
     {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; form-action 'self'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://basemaps.cartocdn.com; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://*.basemaps.cartocdn.com https://basemaps.cartocdn.com; font-src 'self' data:; worker-src 'self'"
+        }
+      ]
+    },
+    {
       "source": "/sw.js",
       "headers": [
         {

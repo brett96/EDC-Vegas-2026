@@ -1,5 +1,8 @@
 /* Offline shell — precache resolves from this script's URL (root or /edc/ etc.) */
-const CACHE = "edc-vegas-2026-v64";
+const CACHE = "edc-vegas-2026-v66";
+
+/** Set during install if tile precache had failures; flushed to clients after activate + claim. */
+let pendingTilePrecacheFailure = null;
 
 function scopeBase() {
   const s = self.registration && self.registration.scope ? self.registration.scope : self.location.href;
@@ -34,27 +37,33 @@ const CORE_ASSETS_REL = [
  * Precache map tiles with bounded retries. Returns { failed, total }.
  * Failures are reported to open clients so the UI can warn (offline map may be incomplete).
  */
+async function cacheOneTileWithRetries(cache, path) {
+  const href = scopedUrl(path);
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await cache.add(href);
+      return true;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+    }
+  }
+  console.warn("[sw] tile precache failed after retries", path, lastErr);
+  return false;
+}
+
 function cacheTileUrls(cache, urls) {
   const list = Array.isArray(urls) ? urls : [];
+  const BATCH = 6;
   return (async () => {
     let failed = 0;
-    for (const path of list) {
-      const href = scopedUrl(path);
-      let lastErr = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          await cache.add(href);
-          lastErr = null;
-          break;
-        } catch (err) {
-          lastErr = err;
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
-        }
-      }
-      if (lastErr) {
-        console.warn("[sw] tile precache failed after retries", path, lastErr);
-        failed++;
-      }
+    for (let i = 0; i < list.length; i += BATCH) {
+      const slice = list.slice(i, i + BATCH);
+      const results = await Promise.all(slice.map((path) => cacheOneTileWithRetries(cache, path)));
+      results.forEach((ok) => {
+        if (!ok) failed++;
+      });
     }
     return { failed, total: list.length };
   })();
@@ -72,6 +81,7 @@ function notifyClientsTilePrecacheStats(failed, total) {
 }
 
 self.addEventListener("install", (event) => {
+  pendingTilePrecacheFailure = null;
   event.waitUntil(
     caches
       .open(CACHE)
@@ -86,13 +96,38 @@ self.addEventListener("install", (event) => {
             return caches.open(CACHE).then((cache) => cacheTileUrls(cache, urls));
           })
       )
-      .then((tileStats) => notifyClientsTilePrecacheStats(tileStats && tileStats.failed, tileStats && tileStats.total))
+      .then((tileStats) => {
+        const failed = tileStats && Number(tileStats.failed);
+        if (failed && failed > 0) {
+          pendingTilePrecacheFailure = {
+            failed,
+            total: Number.isFinite(Number(tileStats.total)) ? Number(tileStats.total) : 0,
+          };
+        } else pendingTilePrecacheFailure = null;
+      })
       .then(() => self.skipWaiting())
       .catch((err) => {
         console.error("[sw] precache failed", err);
       })
   );
 });
+
+function notifyClientsCacheVersion() {
+  return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    clients.forEach((c) => {
+      try {
+        c.postMessage({ type: "edc-cache-version", version: CACHE });
+      } catch (_) {}
+    });
+  });
+}
+
+function flushPendingTilePrecacheFailure() {
+  const p = pendingTilePrecacheFailure;
+  pendingTilePrecacheFailure = null;
+  if (!p || !p.failed) return Promise.resolve();
+  return notifyClientsTilePrecacheStats(p.failed, p.total);
+}
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
@@ -107,6 +142,8 @@ self.addEventListener("activate", (event) => {
         )
       )
       .then(() => self.clients.claim())
+      .then(() => notifyClientsCacheVersion())
+      .then(() => flushPendingTilePrecacheFailure())
   );
 });
 

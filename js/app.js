@@ -111,6 +111,28 @@
 
   const PIN_COLORS = ["#ff2dbe", "#00f5ff", "#39ff14", "#ffd400", "#c86bff", "#ff6b35", "#ffffff"];
 
+  /** Display + parse schedule wall times as Las Vegas (CSV is festival-local). */
+  const SCHEDULE_TIMEZONE = "America/Los_Angeles";
+
+  function sanitizePinColor(c) {
+    const s = String(c || "").trim();
+    if (PIN_COLORS.indexOf(s) >= 0) return s;
+    if (/^#[0-9A-Fa-f]{6}$/.test(s)) return s;
+    if (/^#[0-9A-Fa-f]{3}$/.test(s)) return s;
+    return null;
+  }
+
+  function isValidLatLng(lat, lng) {
+    return (
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+    );
+  }
+
   const CATEGORY_LABELS = {
     stage: "Stages",
     art_installation: "Art installations",
@@ -239,6 +261,14 @@
     deleteScheduleSetName: document.getElementById("delete-schedule-set-name"),
     deleteScheduleSetCancel: document.getElementById("delete-schedule-set-cancel"),
     deleteScheduleSetConfirm: document.getElementById("delete-schedule-set-confirm"),
+    dlgHashImportMeetups: document.getElementById("dlg-hash-import-meetups"),
+    hashImportMeetupsMsg: document.getElementById("hash-import-meetups-msg"),
+    hashImportMeetupsCancel: document.getElementById("hash-import-meetups-cancel"),
+    hashImportMeetupsMerge: document.getElementById("hash-import-meetups-merge"),
+    dlgHashImportSchedule: document.getElementById("dlg-hash-import-schedule"),
+    hashImportScheduleMsg: document.getElementById("hash-import-schedule-msg"),
+    hashImportScheduleCancel: document.getElementById("hash-import-schedule-cancel"),
+    hashImportScheduleMerge: document.getElementById("hash-import-schedule-merge"),
     dlgShare: document.getElementById("dlg-share"),
     inpShareUrl: document.getElementById("inp-share-url"),
     btnCopyLink: document.getElementById("btn-copy-link"),
@@ -315,6 +345,7 @@
   /** @type {{ kind: 'pin'|'poi', id: string, name: string, lat: number, lng: number, category?: string } | null} */
   let activeNavTarget = null;
   let geoWatchId = null;
+  let toastTimerId = null;
   /** We pushed a history entry when opening nav so the device back button closes the overlay. */
   let navHistoryPushed = false;
   let navInterval = null;
@@ -334,6 +365,8 @@
   let navReadoutRaf = null;
   let orientationHooked = false;
   let compassEnabled = false;
+  /** Mirrors last successful `savePins` / first `loadPins` parse — avoids re-reading localStorage on hot paths. */
+  let pinsCache = null;
   /** User or OS blocked motion/orientation (e.g. iOS Safari prompt denied). */
   let compassMotionPermissionDenied = false;
   /** After a successful compass attach, resume from background without re-prompting iOS. */
@@ -653,18 +686,29 @@
   }
 
   function loadPins() {
+    if (pinsCache !== null) return pinsCache;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
+      if (!raw) {
+        pinsCache = [];
+        return pinsCache;
+      }
       const arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr : [];
+      pinsCache = Array.isArray(arr) ? arr : [];
+      return pinsCache;
     } catch {
-      return [];
+      pinsCache = [];
+      return pinsCache;
     }
   }
 
   function savePins(pins) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pins));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pins));
+      pinsCache = pins;
+    } catch {
+      toast("Could not save pins — device storage may be full.");
+    }
   }
 
   function haversineM(a, b) {
@@ -871,7 +915,7 @@
   }
 
   /**
-   * Parse `MM/DD/YYYY` + `h:mm AM|PM` in **local** time.
+   * Parse `MM/DD/YYYY` + `h:mm AM|PM` as **Pacific** wall time (EDC Las Vegas).
    *
    * The bundled EDC schedule CSV advances the **Date** column after midnight (e.g. Friday
    * after-midnight sets use `5/16/2026` with `Day=FRIDAY`), so timestamps already sort in
@@ -899,14 +943,20 @@
     const month = Number(dm[1]);
     const day = Number(dm[2]);
     const year = Number(dm[3]);
-    const dt = new Date(year, month - 1, day, hour, min, 0, 0);
-    const ts = dt.getTime();
+    const mo = String(month).padStart(2, "0");
+    const da = String(day).padStart(2, "0");
+    const hh = String(hour).padStart(2, "0");
+    const mm = String(min).padStart(2, "0");
+    // Late May = Pacific Daylight Time (UTC−7) for Las Vegas.
+    const iso = year + "-" + mo + "-" + da + "T" + hh + ":" + mm + ":00-07:00";
+    const ts = new Date(iso).getTime();
     return Number.isFinite(ts) ? ts : null;
   }
 
   function formatScheduleStamp(ms) {
     if (!Number.isFinite(ms)) return "TBA";
     return new Intl.DateTimeFormat(undefined, {
+      timeZone: SCHEDULE_TIMEZONE,
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -918,6 +968,7 @@
   function formatScheduleTime(ms) {
     if (!Number.isFinite(ms)) return "TBA";
     return new Intl.DateTimeFormat(undefined, {
+      timeZone: SCHEDULE_TIMEZONE,
       hour: "numeric",
       minute: "2-digit",
     }).format(ms);
@@ -1398,8 +1449,9 @@
   function toast(msg) {
     els.toast.textContent = msg;
     els.toast.dataset.visible = "true";
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => {
+    clearTimeout(toastTimerId);
+    toastTimerId = setTimeout(() => {
+      toastTimerId = null;
       els.toast.dataset.visible = "false";
     }, 3200);
   }
@@ -1430,7 +1482,7 @@
     fetch(asset("sw.js"), { cache: "no-store" })
       .then((r) => (r.ok ? r.text() : ""))
       .then((text) => {
-        const m = text.match(/const\s+CACHE\s*=\s*"([^"]+)"/);
+        const m = text.match(/const\s+CACHE\s*=\s*["']([^"']+)["']/);
         const id = m && m[1].match(/v(\d+)\s*$/i);
         if (id) els.footerCacheVersion.textContent = id[1];
         else if (m) els.footerCacheVersion.textContent = m[1];
@@ -1452,8 +1504,9 @@
       .register(swUrl, { scope: swScope })
       .then((reg) => {
         if (reg.installing) {
-          reg.installing.addEventListener("statechange", () => {
-            if (reg.installing && reg.installing.state === "installed") setOfflineBadge("ready");
+          reg.installing.addEventListener("statechange", (e) => {
+            const sw = e.target;
+            if (sw && sw.state === "installed") setOfflineBadge("ready");
           });
         }
         if (reg.waiting) setOfflineBadge("ready");
@@ -1464,7 +1517,14 @@
 
     navigator.serviceWorker.addEventListener("message", (ev) => {
       const d = ev.data;
-      if (!d || d.type !== "edc-precache-tiles") return;
+      if (!d) return;
+      if (d.type === "edc-cache-version" && d.version && els.footerCacheVersion) {
+        const id = String(d.version).match(/v(\d+)\s*$/i);
+        if (id) els.footerCacheVersion.textContent = id[1];
+        else els.footerCacheVersion.textContent = String(d.version);
+        return;
+      }
+      if (d.type !== "edc-precache-tiles") return;
       const failed = Number(d.failed);
       const total = Number(d.total);
       if (!Number.isFinite(failed) || failed <= 0) return;
@@ -1474,9 +1534,12 @@
   }
 
   function pinIcon(color) {
+    const inner = document.createElement("div");
+    inner.className = "pin-marker-inner";
+    inner.style.background = sanitizePinColor(color) || PIN_COLORS[0];
     return L.divIcon({
       className: "",
-      html: `<div class="pin-marker-inner" style="background:${color}"></div>`,
+      html: inner,
       iconSize: [26, 26],
       iconAnchor: [13, 26],
     });
@@ -1633,7 +1696,7 @@
 
     poiLayer = L.layerGroup().addTo(map);
     pinsLayer = L.layerGroup().addTo(map);
-    userMarker = L.marker(MAP_BOUNDS.getCenter(), { icon: userIcon() }).addTo(map);
+    userMarker = L.marker(MAP_BOUNDS.getCenter(), { icon: userIcon() });
 
     const lockToOfflineBounds = () => {
       if (!map) return;
@@ -1853,7 +1916,7 @@
     leafletMarkers.clear();
     pins.forEach((p) => {
       const m = L.marker([p.lat, p.lng], {
-        icon: pinIcon(p.color || PIN_COLORS[0]),
+        icon: pinIcon(p.color),
         draggable: true,
       });
       const pinPopupEl = createNavigatePopupEl(p.name, "Meetup pin", () => openNavForPin(p.id));
@@ -1897,23 +1960,39 @@
       li.className = "pin-item";
       const active = activeNavTarget && activeNavTarget.kind === "pin" && activeNavTarget.id === p.id;
       li.dataset.active = active ? "true" : "false";
-      li.innerHTML = `
-        <div class="pin-swatch" style="background:${p.color || PIN_COLORS[0]}"></div>
-        <div class="pin-meta">
-          <div class="pin-name"></div>
-          <div class="pin-ll"></div>
-        </div>
-        <div class="pin-actions">
-          <button type="button" data-a="go">Navigate</button>
-          <button type="button" data-a="del">Delete</button>
-        </div>`;
-      li.querySelector(".pin-name").textContent = p.name;
-      li.querySelector(".pin-ll").textContent = p.lat.toFixed(5) + ", " + p.lng.toFixed(5);
-      li.querySelector('[data-a="go"]').addEventListener("click", (e) => {
+      const swatch = document.createElement("div");
+      swatch.className = "pin-swatch";
+      swatch.style.background = sanitizePinColor(p.color) || PIN_COLORS[0];
+      const meta = document.createElement("div");
+      meta.className = "pin-meta";
+      const nameEl = document.createElement("div");
+      nameEl.className = "pin-name";
+      const llEl = document.createElement("div");
+      llEl.className = "pin-ll";
+      meta.appendChild(nameEl);
+      meta.appendChild(llEl);
+      const actions = document.createElement("div");
+      actions.className = "pin-actions";
+      const btnGo = document.createElement("button");
+      btnGo.type = "button";
+      btnGo.dataset.a = "go";
+      btnGo.textContent = "Navigate";
+      const btnDel = document.createElement("button");
+      btnDel.type = "button";
+      btnDel.dataset.a = "del";
+      btnDel.textContent = "Delete";
+      actions.appendChild(btnGo);
+      actions.appendChild(btnDel);
+      li.appendChild(swatch);
+      li.appendChild(meta);
+      li.appendChild(actions);
+      nameEl.textContent = p.name;
+      llEl.textContent = p.lat.toFixed(5) + ", " + p.lng.toFixed(5);
+      btnGo.addEventListener("click", (e) => {
         e.stopPropagation();
         openNavForPin(p.id);
       });
-      li.querySelector('[data-a="del"]').addEventListener("click", (e) => {
+      btnDel.addEventListener("click", (e) => {
         e.stopPropagation();
         openDeletePinConfirm(p.id);
       });
@@ -2156,6 +2235,7 @@
     prevGeoPosition = pos;
     lastPosition = pos;
     const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    if (map && userMarker && !map.hasLayer(userMarker)) userMarker.addTo(map);
     userMarker.setLatLng(ll);
     els.coordStrip.textContent =
       "GPS: " +
@@ -2280,6 +2360,10 @@
       navigator.geolocation.clearWatch(geoWatchId);
       geoWatchId = null;
     }
+    if (navInterval) {
+      clearInterval(navInterval);
+      navInterval = null;
+    }
     if (orientationHooked) {
       window.removeEventListener("deviceorientation", onDeviceOrientation, true);
       window.removeEventListener("deviceorientationabsolute", onDeviceOrientation, true);
@@ -2293,6 +2377,12 @@
   /** Resume GPS watch; re-attach compass if the user left the toggle on. */
   function resumeSensorsForPageVisible() {
     startGeolocation();
+    if (activeNavTarget && !navInterval) {
+      navInterval = setInterval(() => {
+        updateNavReadout();
+        updateNavMiniMap();
+      }, 90);
+    }
     if (!els.compassToggleNav || !els.compassToggleNav.checked) return;
     if (compassMotionGrantedSession) {
       compassMotionPermissionDenied = false;
@@ -2410,6 +2500,7 @@
       opacity: 0.75,
       dashArray: "6 5",
     }).addTo(navMap);
+    navMap.invalidateSize({ animate: false });
   }
 
   function updateNavMiniMap() {
@@ -2432,7 +2523,6 @@
       navMap.setView(targetLL, 17, { animate: false });
       lastNavMiniMapFitAt = now;
     }
-    navMap.invalidateSize();
   }
 
   function addPinAt(latlng, name) {
@@ -2535,7 +2625,10 @@
 
   function decodeShareDataToPins(data) {
     if (!data) return null;
-    if (data.v === 1 && Array.isArray(data.pins)) return data.pins;
+    if (data.v === 1 && Array.isArray(data.pins)) {
+      const arr = data.pins.filter((p) => p && isValidLatLng(Number(p.lat), Number(p.lng)));
+      return arr.length ? arr : null;
+    }
     if (data.v === 3 && Array.isArray(data.p)) {
       const out = [];
       data.p.forEach((row, i) => {
@@ -2546,11 +2639,14 @@
         const ci = Number(row[3]);
         if (!Number.isFinite(la) || !Number.isFinite(lo)) return;
         const color = PIN_COLORS[(((Number.isFinite(ci) ? ci : i) % PIN_COLORS.length) + PIN_COLORS.length) % PIN_COLORS.length];
+        const lat = la / 1e6;
+        const lng = lo / 1e6;
+        if (!isValidLatLng(lat, lng)) return;
         out.push({
           id: uid(),
           name,
-          lat: la / 1e6,
-          lng: lo / 1e6,
+          lat,
+          lng,
           color,
         });
       });
@@ -2640,15 +2736,15 @@
     return u.href;
   }
 
+  function shareLinkPageBase() {
+    if (location.origin && location.origin !== "null") return shareUrlBase();
+    if (location.pathname.split("/").pop() === "index.html") return location.pathname;
+    return location.pathname.replace(/\/?$/, "/index.html");
+  }
+
   async function buildShareUrl() {
-    const base =
-      location.origin && location.origin !== "null"
-        ? shareUrlBase()
-        : location.pathname.split("/").pop() === "index.html"
-          ? location.pathname
-          : location.pathname.replace(/\/?$/, "/index.html");
     const token = await encodeShareTokenAsync(loadPins());
-    return base + "#" + SHARE_PREFIX + token;
+    return shareLinkPageBase() + "#" + SHARE_PREFIX + token;
   }
 
   async function encodeScheduleShareTokenAsync(setIds) {
@@ -2669,15 +2765,9 @@
   }
 
   async function buildScheduleShareUrl() {
-    const base =
-      location.origin && location.origin !== "null"
-        ? shareUrlBase()
-        : location.pathname.split("/").pop() === "index.html"
-          ? location.pathname
-          : location.pathname.replace(/\/?$/, "/index.html");
     const ids = Array.from(selectedScheduleSetIds);
     const token = await encodeScheduleShareTokenAsync(ids);
-    return base + "#" + SCHEDULE_SHARE_PREFIX + token;
+    return shareLinkPageBase() + "#" + SCHEDULE_SHARE_PREFIX + token;
   }
 
   function normalizeMeetupName(name) {
@@ -2692,7 +2782,7 @@
     const name = normalizeMeetupName(p.name);
     const lat = Number(p.lat);
     const lng = Number(p.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    if (!isValidLatLng(lat, lng)) return null;
     return name + "\0" + lat.toFixed(6) + "\0" + lng.toFixed(6);
   }
 
@@ -2718,10 +2808,10 @@
       name: normalizeMeetupName(x.name || "Meetup"),
       lat: Number(x.lat),
       lng: Number(x.lng),
-      color: x.color || PIN_COLORS[i % PIN_COLORS.length],
+      color: sanitizePinColor(x.color) || PIN_COLORS[i % PIN_COLORS.length],
       created: Date.now(),
     }));
-    const bad = cleaned.some((p) => !Number.isFinite(p.lat) || !Number.isFinite(p.lng));
+    const bad = cleaned.some((p) => !isValidLatLng(p.lat, p.lng));
     if (bad) {
       toast("Invalid pin data");
       return;
@@ -2784,7 +2874,40 @@
     if (!h || (!h.includes(SHARE_PREFIX) && !h.includes(LEGACY_SHARE_PREFIX))) return;
     const pins = await extractSharePayload(h);
     if (!pins || !pins.length) return;
-    const ok = window.confirm("This link includes " + pins.length + " meetup pin(s). Merge into your saved pins?");
+    const dlg = els.dlgHashImportMeetups;
+    const msg = els.hashImportMeetupsMsg;
+    const mergeBtn = els.hashImportMeetupsMerge;
+    const cancelBtn = els.hashImportMeetupsCancel;
+    if (!dlg || !msg || !mergeBtn || !cancelBtn) {
+      const ok = window.confirm(
+        "This link includes " + pins.length + " meetup pin(s). Merge into your saved pins?"
+      );
+      if (ok) importPinsFromPayload(pins, "merge");
+      else history.replaceState(null, "", location.pathname + location.search);
+      return;
+    }
+    msg.textContent = "This link includes " + pins.length + " meetup pin(s). Merge into your saved pins?";
+    const ok = await new Promise((resolve) => {
+      let picked = false;
+      const onMerge = () => {
+        picked = true;
+        dlg.close();
+      };
+      const onCancel = () => {
+        picked = false;
+        dlg.close();
+      };
+      const onClose = () => {
+        mergeBtn.removeEventListener("click", onMerge);
+        cancelBtn.removeEventListener("click", onCancel);
+        dlg.removeEventListener("close", onClose);
+        resolve(picked);
+      };
+      mergeBtn.addEventListener("click", onMerge);
+      cancelBtn.addEventListener("click", onCancel);
+      dlg.addEventListener("close", onClose);
+      dlg.showModal();
+    });
     if (ok) importPinsFromPayload(pins, "merge");
     else history.replaceState(null, "", location.pathname + location.search);
   }
@@ -2794,9 +2917,43 @@
     if (!h || !h.includes(SCHEDULE_SHARE_PREFIX)) return;
     const ids = await extractScheduleSharePayload(h);
     if (!ids || !ids.length) return;
-    const ok = window.confirm(
-      "This link includes " + ids.length + " saved set(s). Merge them into your schedule on this device?"
-    );
+    const dlg = els.dlgHashImportSchedule;
+    const msg = els.hashImportScheduleMsg;
+    const mergeBtn = els.hashImportScheduleMerge;
+    const cancelBtn = els.hashImportScheduleCancel;
+    if (!dlg || !msg || !mergeBtn || !cancelBtn) {
+      const ok = window.confirm(
+        "This link includes " + ids.length + " saved set(s). Merge them into your schedule on this device?"
+      );
+      if (ok) {
+        importScheduleFromPayload(ids, "merge");
+        setSheetTab("schedule");
+      } else history.replaceState(null, "", location.pathname + location.search);
+      return;
+    }
+    msg.textContent =
+      "This link includes " + ids.length + " saved set(s). Merge them into your schedule on this device?";
+    const ok = await new Promise((resolve) => {
+      let picked = false;
+      const onMerge = () => {
+        picked = true;
+        dlg.close();
+      };
+      const onCancel = () => {
+        picked = false;
+        dlg.close();
+      };
+      const onClose = () => {
+        mergeBtn.removeEventListener("click", onMerge);
+        cancelBtn.removeEventListener("click", onCancel);
+        dlg.removeEventListener("close", onClose);
+        resolve(picked);
+      };
+      mergeBtn.addEventListener("click", onMerge);
+      cancelBtn.addEventListener("click", onCancel);
+      dlg.addEventListener("close", onClose);
+      dlg.showModal();
+    });
     if (ok) {
       importScheduleFromPayload(ids, "merge");
       setSheetTab("schedule");
@@ -3075,7 +3232,7 @@
 
     els.formName.addEventListener("submit", (e) => {
       e.preventDefault();
-      const name = els.inpName.value.trim() || "Meetup";
+      const name = normalizeMeetupName(els.inpName.value || "Meetup");
       const lat = Number(els.dlgName.dataset.lat);
       const lng = Number(els.dlgName.dataset.lng);
       els.dlgName.close();
@@ -3354,6 +3511,15 @@
     setOnlineOfflineTitle();
     window.addEventListener("online", setOnlineOfflineTitle);
     window.addEventListener("offline", setOnlineOfflineTitle);
+
+    window.addEventListener("beforeunload", () => {
+      if (geoWatchId != null) {
+        try {
+          navigator.geolocation.clearWatch(geoWatchId);
+        } catch (_) {}
+        geoWatchId = null;
+      }
+    });
 
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: asset("vendor/leaflet/images/marker-icon-2x.png"),
