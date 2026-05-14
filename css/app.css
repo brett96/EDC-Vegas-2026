@@ -786,6 +786,11 @@ html[data-site-theme="light"] .toggle-thumb {
   color: inherit;
 }
 
+.map-attribution .footer-cache-version {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
 .empty-hint {
   margin: 4px 14px 8px;
   padding: 10px 12px;

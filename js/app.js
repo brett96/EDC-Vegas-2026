@@ -43,8 +43,15 @@
    * Leaflet needs literal `{z}/{x}/{y}` — `new URL()` encodes `{` and breaks tiles.
    */
   const BASEMAP_TILE_URL = ASSET_BASE_URL.replace(/\/?$/, "/") + "tiles/{z}/{x}/{y}.png";
-  /** Standard OpenStreetMap raster tiles when online. */
-  const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  /**
+   * Light world basemap when online: CARTO Positron (OSM data).
+   * Avoids tile.openstreetmap.org — that endpoint often returns “Access blocked”
+   * for in-browser Leaflet traffic; CARTO CDN is intended for web map clients.
+   */
+  const ONLINE_WORLD_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
+  const ONLINE_WORLD_TILE_ATTRIBUTION =
+    '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors ' +
+    '&copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · online';
 
   /**
    * LVMS infield rectangle (landscape). Used to convert each POI's normalized
@@ -63,19 +70,26 @@
   );
 
   /**
-   * Rotation of the official EDC festival-map artwork relative to the real
-   * world.
+   * Rotation of the official EDC festival-map **file** (`assets/edc_map.jpg`)
+   * relative to true north on the ground.
+   *
+   * POIs and `STAGE_UV_ZONES` use **artwork (u, v)** in that JPEG’s pixel frame
+   * (origin top-left of the file). The portrait map is **not** necessarily drawn
+   * with “image up = north” like the north-up Leaflet basemap in this app.
+   * `ARTWORK_ROTATION_DEG` rotates those UVs into ground east–north before
+   * `uvToLatLng` maps into `INFIELD_BOUNDS`.
    *
    * ARTWORK_ROTATION_DEG = how many degrees the artwork has been rotated
    * counter-clockwise from a true north-up orientation.
    *
-   *   0   → artwork is north-up (top = North)
+   *   0   → treat top of the JPEG as true North in ground space (after the
+   *         v-axis flip in `artworkUvToGroundXY`). Use 90, 180, or 270 if the
+   *         printed map’s “up” does not match north on the OSM basemap.
    *   90  → top of artwork = East
    *   180 → top of artwork = South (artwork upside-down)
    *   270 → top of artwork = West
    *
-   * Calibrated against the Radiate interactive map reference so stage shading
-   * and POI dots align to the same side of the speedway.
+   * Calibrate against OSM / on-site checks when in doubt (e.g. Gate S vs file).
    */
   const ARTWORK_ROTATION_DEG = 0;
 
@@ -174,6 +188,7 @@
     btnCenterFloat: document.getElementById("btn-center-float"),
     btnEdcFloat: document.getElementById("btn-edc-float"),
     installLink: document.getElementById("install-link"),
+    footerCacheVersion: document.getElementById("footer-cache-version"),
     compassToggleNav: document.getElementById("compass-toggle-nav"),
     splitter: document.getElementById("split-splitter"),
     mapStack: document.getElementById("map-stack"),
@@ -366,11 +381,10 @@
   }
 
   /**
-   * Stage / major zones in festival-map artwork (u,v). Each `uvRing` is a simple polygon
-   * in artwork space (0–1, origin top-left). Rings are a non-overlapping partition of the
-   * infield layout (shared boundary edges only) so translucent fills do not stack.
-   * Shapes follow edc_map.jpg more closely than axis-aligned rectangles; lat/lng still
-   * comes from `uvToLatLng` after `ARTWORK_ROTATION_DEG`.
+   * Stage / major zones in **edc_map.jpg** artwork (u, v). Each `uvRing` is a
+   * simple polygon in file space (0–1, origin top-left). Regions may overlap in
+   * UV where the printed map physically overlaps (stacked translucency is fine).
+   * Lat/lng comes from `uvToLatLng` after `ARTWORK_ROTATION_DEG`.
    */
   const STAGE_UV_ZONES = [
     {
@@ -1362,6 +1376,20 @@
     if (els.appTitle) els.appTitle.textContent = "EDC VEGAS 2026" + (isOnline ? " · ONLINE" : " · OFFLINE");
   }
 
+  function refreshFooterCacheVersion() {
+    if (!els.footerCacheVersion) return;
+    fetch(asset("sw.js"), { cache: "no-store" })
+      .then((r) => (r.ok ? r.text() : ""))
+      .then((text) => {
+        const m = text.match(/const\s+CACHE\s*=\s*"([^"]+)"/);
+        if (m) els.footerCacheVersion.textContent = m[1];
+        else els.footerCacheVersion.textContent = "—";
+      })
+      .catch(() => {
+        els.footerCacheVersion.textContent = "—";
+      });
+  }
+
   function registerSw() {
     if (!("serviceWorker" in navigator)) {
       setOfflineBadge("basic");
@@ -1510,12 +1538,12 @@
       maxZoom: 19,
     });
 
-    // Online basemap: always OSM standard. Local tiles remain the infield underlay.
-    onlineTilesLight = L.tileLayer(OSM_TILE_URL, {
+    // Online basemap: CARTO Positron (light). Local tiles remain the infield underlay.
+    onlineTilesLight = L.tileLayer(ONLINE_WORLD_TILE_URL, {
       minZoom: 2,
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · online',
+      maxZoom: 20,
+      subdomains: "abcd",
+      attribution: ONLINE_WORLD_TILE_ATTRIBUTION,
     });
     // Offline bundled EDC-area tiles (light style) and underlay when online.
     offlineTiles = L.tileLayer(BASEMAP_TILE_URL, {
@@ -2201,9 +2229,10 @@
       maxZoom: 19,
     });
 
-    navMapOnlineTilesLight = L.tileLayer(OSM_TILE_URL, {
+    navMapOnlineTilesLight = L.tileLayer(ONLINE_WORLD_TILE_URL, {
       minZoom: 2,
-      maxZoom: 19,
+      maxZoom: 20,
+      subdomains: "abcd",
     });
 
     navMapOfflineTiles = L.tileLayer(BASEMAP_TILE_URL, {
@@ -3167,6 +3196,7 @@
     applyStoredPanelHeight();
     initMap();
     registerSw();
+    refreshFooterCacheVersion();
     loadScheduleSelection();
     wireUi();
     renderScheduleTab();

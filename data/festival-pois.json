@@ -2,7 +2,7 @@
   "version": 2,
   "source": "assets/edc_map.jpg",
   "mapImage": { "width": 1080, "height": 1350 },
-  "_notes": "u (0..1) = horizontal on the artwork (0 left, 1 right). v (0..1) = vertical on the artwork (0 top, 1 bottom). The runtime rotates these by ARTWORK_ROTATION_DEG (0° / north-up calibration aligned to the Radiate interactive map reference) before mapping into LVMS lat/lng. Translucent stage/area fills are polygon rings in STAGE_UV_ZONES (js/app.js), aligned to the same (u,v) frame as these POIs.",
+  "_notes": "Coordinates are normalized (u,v) in **assets/edc_map.jpg** file space (0 left, 1 right; 0 top, 1 bottom). That poster is not necessarily printed with image-up = true north. `ARTWORK_ROTATION_DEG` in js/app.js maps artwork into north-up ground before lat/lng. Digitize POIs and tune STAGE_UV_ZONES rings by overlaying this file; translucent fills may overlap where the printed map overlaps.",
   "pois": [
     { "id": "stage_kinetic",  "name": "kineticFIELD",   "category": "stage", "u": 0.50, "v": 0.13 },
     { "id": "stage_quantum",  "name": "quantumVALLEY",  "category": "stage", "u": 0.66, "v": 0.26 },
