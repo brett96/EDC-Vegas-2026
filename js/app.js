@@ -78,17 +78,19 @@
    * north-up Leaflet basemap; `ARTWORK_ROTATION_DEG` maps UV into ground
    * east–north before `uvToLatLng` projects into `INFIELD_BOUNDS`.
    *
-   * **90°** matches commit `34819b9` (“Removed walking assumptions tooltip”):
-   * kinetic near the top of the file reads as the **eastern** infield arc on
-   * OSM; Camp EDC / dragstrip read on the **north** side. Use 0 / 180 / 270 for
-   * other print orientations; compare street labels on the artwork to OSM.
+   * Calibrated against `assets/edc_map.jpg` vs a **north-up** basemap (Speedway
+   * Blvd, I‑15, Pit Rd): the portrait artwork is ~**45° clockwise** from
+   * north-up, so kinetic sits on the **top-right** infield arc, Camp EDC north
+   * of the oval (Speedway / I‑15), bassPOD / circuitGROUNDS on the **bottom-left**
+   * Pit Rd arc. Any integer multiple of 90° still uses the fast path below;
+   * other values use the continuous rotation branch.
    *
    *   0   → top of file = North
-   *   90  → top of file = East (EDC LVMS 2026 default)
+   *   90  → top of file = East
    *   180 → top of file = South
    *   270 → top of file = West
    */
-  const ARTWORK_ROTATION_DEG = 90;
+  const ARTWORK_ROTATION_DEG = 45;
 
   const PIN_COLORS = ["#ff2dbe", "#00f5ff", "#39ff14", "#ffd400", "#c86bff", "#ff6b35", "#ffffff"];
 
@@ -342,28 +344,31 @@
    * counter-clockwise rotation from true north.
    */
   function artworkUvToGroundXY(u, v) {
-    const rot = ((ARTWORK_ROTATION_DEG % 360) + 360) % 360;
-    switch (rot) {
-      case 0:
-        return [u, 1 - v];
-      case 90:
-        return [1 - v, 1 - u];
-      case 180:
-        return [1 - u, v];
-      case 270:
-        return [v, u];
-      default: {
-        // Arbitrary angle: rotate around the centre of the unit square.
-        const cx = u - 0.5;
-        const cy = 0.5 - v; // flip so y grows up
-        const rad = (-rot * Math.PI) / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-        const nx = cx * cos - cy * sin + 0.5;
-        const ny = cx * sin + cy * cos + 0.5;
-        return [nx, ny];
+    const r = ARTWORK_ROTATION_DEG;
+    const rot = ((r % 360) + 360) % 360;
+    if (rot === 0 || rot === 90 || rot === 180 || rot === 270) {
+      switch (rot) {
+        case 0:
+          return [u, 1 - v];
+        case 90:
+          return [1 - v, 1 - u];
+        case 180:
+          return [1 - u, v];
+        case 270:
+          return [v, u];
+        default:
+          break;
       }
     }
+    // Non-cardinal (e.g. 45°): use signed `r` so negative angles are not folded to 315°.
+    const cx = u - 0.5;
+    const cy = 0.5 - v;
+    const rad = (-r * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const nx = cx * cos - cy * sin + 0.5;
+    const ny = cx * sin + cy * cos + 0.5;
+    return [nx, ny];
   }
 
   function uvToLatLng(bounds, u, v) {

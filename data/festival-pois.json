@@ -2,7 +2,7 @@
   "version": 2,
   "source": "assets/edc_map.jpg",
   "mapImage": { "width": 1080, "height": 1350 },
-  "_notes": "u (0..1) = horizontal on assets/edc_map.jpg (0 left, 1 right); v (0..1) = vertical (0 top, 1 bottom). ARTWORK_ROTATION_DEG in js/app.js (90° for 2026 LVMS) maps file UV to north-up ground before lat/lng — same calibration as commit 34819b9. Stage fills: STAGE_UV_ZONES. Camp EDC POI sits in the artwork top-left parking pod, separate from infield stages.",
+  "_notes": "u (0..1) = horizontal on assets/edc_map.jpg (0 left, 1 right); v (0..1) = vertical (0 top, 1 bottom). ARTWORK_ROTATION_DEG in js/app.js (~45° for 2026 LVMS vs north-up basemap) maps file UV to ground before lat/lng — calibrate with Speedway Blvd / I‑15 / Pit Rd. Stage fills: STAGE_UV_ZONES. Camp EDC POI: artwork top-left camping pod north of the infield.",
   "pois": [
     { "id": "stage_kinetic",  "name": "kineticFIELD",   "category": "stage", "u": 0.50, "v": 0.13 },
     { "id": "stage_quantum",  "name": "quantumVALLEY",  "category": "stage", "u": 0.66, "v": 0.26 },

@@ -1,14 +1,19 @@
 """
-Prefetch OpenStreetMap raster tiles for Las Vegas Motor Speedway for offline
-PWA hosting. Tiles are served only from your origin in production.
+Prefetch raster tiles for Las Vegas Motor Speedway for offline PWA hosting.
 
   python scripts/fetch_osm_tiles.py
 
 Writes tiles/{z}/{x}/{y}.png and data/tiles-manifest.json.
 
+Tiles are fetched from **CARTO Positron** (OSM-derived, CDN-friendly). Do not use
+tile.openstreetmap.org here — that endpoint often returns small “Access blocked”
+PNGs that would be bundled as offline tiles and shown in the app.
+
 Two zoom regimes:
   * Low zoom (12, 13): wider context box around LVMS so users can zoom out.
   * Mid zoom (14, 15, 16): tight box covering the festival venue itself.
+
+Re-download everything: EDC_FORCE_TILE_REFRESH=1
 """
 from __future__ import annotations
 
@@ -42,10 +47,34 @@ ZOOM_BOXES = [
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TILES_DIR = os.path.join(ROOT, "tiles")
 MANIFEST = os.path.join(ROOT, "data", "tiles-manifest.json")
-UA = "EDC-Vegas-2026-Offline-PWA/1.0 (one-time tile prefetch for bundled offline map)"
+UA = "EDC-Vegas-2026-Offline-PWA/1.0 (one-time tile prefetch; CARTO Positron basemap)"
 
-# OpenStreetMap standard tiles (light)
-OSM_TEMPLATE = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+# CARTO Positron — same family as the in-app online layer; avoids OSM tile blocks.
+def tile_fetch_url(z: int, x: int, y: int) -> str:
+    host = "abcd"[(x + y + z) % 4]
+    return f"https://{host}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+
+
+def tile_file_usable(fp: str) -> bool:
+    """Reject missing files, non-PNG, tiny tiles, or OSM 'Access blocked' bodies."""
+    try:
+        if not os.path.isfile(fp):
+            return False
+        sz = os.path.getsize(fp)
+        if sz < 500:
+            return False
+        with open(fp, "rb") as f:
+            head = f.read(4096)
+    except OSError:
+        return False
+    if head[:8] != b"\x89PNG\r\n\x1a\n":
+        return False
+    low = head.lower()
+    if b"access blocked" in low or b"tile usage policy" in low:
+        return False
+    return True
+
+
 FORCE_REDOWNLOAD = os.environ.get("EDC_FORCE_TILE_REFRESH") == "1"
 
 
@@ -79,13 +108,16 @@ def main() -> None:
                 path = os.path.join(TILES_DIR, str(z), str(x))
                 os.makedirs(path, exist_ok=True)
                 fp = os.path.join(path, f"{y}.png")
-                if not FORCE_REDOWNLOAD and os.path.isfile(fp) and os.path.getsize(fp) > 100:
+                if not FORCE_REDOWNLOAD and tile_file_usable(fp):
                     continue
-                url = OSM_TEMPLATE.format(z=z, x=x, y=y)
+                url = tile_fetch_url(z, x, y)
                 req = urllib.request.Request(url, headers={"User-Agent": UA})
                 try:
                     with urllib.request.urlopen(req, timeout=30) as resp:
                         data = resp.read()
+                    low = data[:8192].lower()
+                    if len(data) < 100 or b"access blocked" in low or b"tile usage policy" in low:
+                        raise RuntimeError(f"bad tile body ({len(data)} bytes)")
                     with open(fp, "wb") as out:
                         out.write(data)
                 except Exception as ex:
