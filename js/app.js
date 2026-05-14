@@ -1316,7 +1316,7 @@
         const pairWord = conflicts === 1 ? "conflict" : "conflicts";
         els.scheduleConflictSummary.hidden = false;
         els.scheduleConflictSummary.textContent =
-          conflicts + " " + pairWord + " detected in your saved itinerary. Overlapping sets are highlighted.";
+          conflicts + " " + pairWord + " detected and highlighted";
       } else {
         els.scheduleConflictSummary.hidden = true;
       }

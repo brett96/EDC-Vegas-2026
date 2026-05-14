@@ -617,6 +617,16 @@ html[data-site-theme="light"] .toggle-thumb {
   white-space: nowrap;
 }
 
+.schedule-section--itinerary .schedule-share-actions {
+  gap: 4px;
+}
+
+.schedule-section--itinerary .schedule-share-actions .btn {
+  padding: 5px 11px;
+  font-size: 0.74rem;
+  line-height: 1.15;
+}
+
 .schedule-conflict-summary {
   margin: 0 12px 8px;
   padding: 9px 12px;
@@ -644,8 +654,8 @@ html[data-site-theme="light"] .toggle-thumb {
   position: sticky;
   top: 0;
   z-index: 6;
-  margin: 0 0 8px;
-  padding: 6px 2px 10px;
+  margin: 0 0 6px;
+  padding: 4px 2px 6px;
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
