@@ -70,28 +70,25 @@
   );
 
   /**
-   * Rotation of the official EDC festival-map **file** (`assets/edc_map.jpg`)
+   * Rotation of the official festival artwork file (`assets/edc_map.jpg`)
    * relative to true north on the ground.
    *
    * POIs and `STAGE_UV_ZONES` use **artwork (u, v)** in that JPEG’s pixel frame
-   * (origin top-left of the file). The portrait map is **not** necessarily drawn
-   * with “image up = north” like the north-up Leaflet basemap in this app.
-   * `ARTWORK_ROTATION_DEG` rotates those UVs into ground east–north before
-   * `uvToLatLng` maps into `INFIELD_BOUNDS`.
+   * (origin top-left). The portrait poster is not aligned the same way as the
+   * north-up Leaflet basemap; `ARTWORK_ROTATION_DEG` maps UV into ground
+   * east–north before `uvToLatLng` projects into `INFIELD_BOUNDS`.
    *
-   * ARTWORK_ROTATION_DEG = how many degrees the artwork has been rotated
-   * counter-clockwise from a true north-up orientation.
+   * **90°** matches commit `34819b9` (“Removed walking assumptions tooltip”):
+   * kinetic near the top of the file reads as the **eastern** infield arc on
+   * OSM; Camp EDC / dragstrip read on the **north** side. Use 0 / 180 / 270 for
+   * other print orientations; compare street labels on the artwork to OSM.
    *
-   *   0   → treat top of the JPEG as true North in ground space (after the
-   *         v-axis flip in `artworkUvToGroundXY`). Use 90, 180, or 270 if the
-   *         printed map’s “up” does not match north on the OSM basemap.
-   *   90  → top of artwork = East
-   *   180 → top of artwork = South (artwork upside-down)
-   *   270 → top of artwork = West
-   *
-   * Calibrate against OSM / on-site checks when in doubt (e.g. Gate S vs file).
+   *   0   → top of file = North
+   *   90  → top of file = East (EDC LVMS 2026 default)
+   *   180 → top of file = South
+   *   270 → top of file = West
    */
-  const ARTWORK_ROTATION_DEG = 0;
+  const ARTWORK_ROTATION_DEG = 90;
 
   const PIN_COLORS = ["#ff2dbe", "#00f5ff", "#39ff14", "#ffd400", "#c86bff", "#ff6b35", "#ffffff"];
 
@@ -481,12 +478,11 @@
       name: "Camp EDC",
       fill: "#88aaff",
       uvRing: [
-        [0.02, 0.52],
-        [0.14, 0.52],
-        [0.12, 0.58],
-        [0.08, 0.6],
-        [0.04, 0.6],
-        [0.02, 0.56],
+        [0.02, 0.04],
+        [0.14, 0.03],
+        [0.16, 0.17],
+        [0.10, 0.19],
+        [0.02, 0.14],
       ],
     },
     {
@@ -1382,7 +1378,9 @@
       .then((r) => (r.ok ? r.text() : ""))
       .then((text) => {
         const m = text.match(/const\s+CACHE\s*=\s*"([^"]+)"/);
-        if (m) els.footerCacheVersion.textContent = m[1];
+        const id = m && m[1].match(/v(\d+)\s*$/i);
+        if (id) els.footerCacheVersion.textContent = id[1];
+        else if (m) els.footerCacheVersion.textContent = m[1];
         else els.footerCacheVersion.textContent = "—";
       })
       .catch(() => {
