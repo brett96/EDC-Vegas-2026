@@ -1,6 +1,6 @@
 """
-Prefetch CARTO basemap raster tiles (OSM-derived) for Las Vegas Motor Speedway
-for offline PWA hosting. Tiles are served only from your origin in production.
+Prefetch OpenStreetMap raster tiles for Las Vegas Motor Speedway for offline
+PWA hosting. Tiles are served only from your origin in production.
 
   python scripts/fetch_osm_tiles.py
 
@@ -19,10 +19,10 @@ import time
 import urllib.request
 
 # LVMS infield (must stay in sync with INFIELD_BOUNDS in js/app.js)
-INFIELD_SOUTH = 36.2685
-INFIELD_NORTH = 36.2755
-INFIELD_WEST = -115.0175
-INFIELD_EAST = -115.0050
+INFIELD_SOUTH = 36.26858
+INFIELD_NORTH = 36.27582
+INFIELD_WEST = -115.01782
+INFIELD_EAST = -115.00455
 
 # Wider context box used for low zoom levels and zoom-out behavior
 WIDE_SOUTH = 36.245
@@ -44,8 +44,9 @@ TILES_DIR = os.path.join(ROOT, "tiles")
 MANIFEST = os.path.join(ROOT, "data", "tiles-manifest.json")
 UA = "EDC-Vegas-2026-Offline-PWA/1.0 (one-time tile prefetch for bundled offline map)"
 
-# CARTO "dark_all" — OSM-based; data © OpenStreetMap, design © CARTO
-CARTO_TEMPLATE = "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+# OpenStreetMap standard tiles (light)
+OSM_TEMPLATE = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+FORCE_REDOWNLOAD = os.environ.get("EDC_FORCE_TILE_REFRESH") == "1"
 
 
 def latlon_to_tile(lat_deg: float, lon_deg: float, zoom: int):
@@ -78,9 +79,9 @@ def main() -> None:
                 path = os.path.join(TILES_DIR, str(z), str(x))
                 os.makedirs(path, exist_ok=True)
                 fp = os.path.join(path, f"{y}.png")
-                if os.path.isfile(fp) and os.path.getsize(fp) > 100:
+                if not FORCE_REDOWNLOAD and os.path.isfile(fp) and os.path.getsize(fp) > 100:
                     continue
-                url = CARTO_TEMPLATE.format(z=z, x=x, y=y)
+                url = OSM_TEMPLATE.format(z=z, x=x, y=y)
                 req = urllib.request.Request(url, headers={"User-Agent": UA})
                 try:
                     with urllib.request.urlopen(req, timeout=30) as resp:

@@ -9,7 +9,7 @@
   /** Compact schedule share links (`#sch=…`) — saved set ids only, gzip+base64url like meetups. */
   const SCHEDULE_SHARE_PREFIX = "sch=";
   const SPLIT_PX_KEY = "edc2026_split_px";
-  /** "dark" | "light" — site-wide UI; online basemap follows (CARTO vs OSM). */
+  /** "dark" | "light" — site-wide UI only. Map basemap stays light in both modes. */
   const SITE_THEME_KEY = "edc2026_site_theme";
   /** Legacy key from map-only toggle; migrated once into SITE_THEME_KEY. */
   const MAP_ONLINE_DARK_KEY = "edc2026_online_map_dark";
@@ -43,10 +43,8 @@
    * Leaflet needs literal `{z}/{x}/{y}` — `new URL()` encodes `{` and breaks tiles.
    */
   const BASEMAP_TILE_URL = ASSET_BASE_URL.replace(/\/?$/, "/") + "tiles/{z}/{x}/{y}.png";
-  /** Standard OpenStreetMap raster tiles when online (light basemap). */
+  /** Standard OpenStreetMap raster tiles when online. */
   const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-  /** Dark online basemap (same family as bundled offline tiles). */
-  const CARTO_DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 
   /**
    * LVMS infield rectangle (landscape). Used to convert each POI's normalized
@@ -55,8 +53,8 @@
    * assets/edc_map.jpg; they are not derived from Google Maps north-up imagery alone.
    */
   const INFIELD_BOUNDS = L.latLngBounds(
-    [36.2685, -115.0175], // SW
-    [36.2755, -115.005]   // NE
+    [36.26858, -115.01782], // SW (micro-tuned to better align infield edges)
+    [36.27582, -115.00455]  // NE
   );
   const MAP_BOUNDS = INFIELD_BOUNDS;
   const WIDE_BOUNDS = L.latLngBounds(
@@ -66,24 +64,20 @@
 
   /**
    * Rotation of the official EDC festival-map artwork relative to the real
-   * world. The 2026 artwork (assets/edc_map.jpg) is portrait-shaped while the
-   * LVMS infield is landscape-shaped — Insomniac rotates the venue artwork so
-   * it fits a portrait poster.
+   * world.
    *
    * ARTWORK_ROTATION_DEG = how many degrees the artwork has been rotated
    * counter-clockwise from a true north-up orientation.
    *
    *   0   → artwork is north-up (top = North)
-   *   90  → top of artwork = East   (default for EDC LVMS 2026)
-   *   180 → top of artwork = South  (artwork is upside-down)
+   *   90  → top of artwork = East
+   *   180 → top of artwork = South (artwork upside-down)
    *   270 → top of artwork = West
    *
-   * This matches the 2026 layout where kineticFIELD sits near the top of the
-   * artwork but on the eastern side of the LVMS infield, with Camp EDC and
-   * the dragstrip area falling on the artwork's left edge (true north).
-   * If a future map flips the orientation, only this constant needs to change.
+   * Calibrated against the Radiate interactive map reference so stage shading
+   * and POI dots align to the same side of the speedway.
    */
-  const ARTWORK_ROTATION_DEG = 90;
+  const ARTWORK_ROTATION_DEG = 0;
 
   const PIN_COLORS = ["#ff2dbe", "#00f5ff", "#39ff14", "#ffd400", "#c86bff", "#ff6b35", "#ffffff"];
 
@@ -273,9 +267,7 @@
   let offlineTiles = null;
   /** @type {import("leaflet").TileLayer | null} */
   let onlineTilesLight = null;
-  /** @type {import("leaflet").TileLayer | null} */
-  let onlineTilesDark = null;
-  /** Site-wide dark UI + (when online) dark basemap. Light = light UI + OSM. */
+  /** Site-wide dark/light UI only (maps remain light). */
   let siteThemeIsDark = true;
   let onlineMode = false;
   const leafletMarkers = new Map();
@@ -323,8 +315,6 @@
   let navMapOfflineTiles = null;
   /** @type {import("leaflet").TileLayer | null} */
   let navMapOnlineTilesLight = null;
-  /** @type {import("leaflet").TileLayer | null} */
-  let navMapOnlineTilesDark = null;
   let navMapOnlineMode = false;
   /** @type {any | null} */
   let deferredInstallPrompt = null;
@@ -1491,21 +1481,17 @@
   function applyMainMapOnlineBasemapLayers() {
     if (!map || !onlineMode || !offlineTiles) return;
     if (onlineTilesLight && map.hasLayer(onlineTilesLight)) map.removeLayer(onlineTilesLight);
-    if (onlineTilesDark && map.hasLayer(onlineTilesDark)) map.removeLayer(onlineTilesDark);
     if (!map.hasLayer(offlineTiles)) offlineTiles.addTo(map);
-    const top = siteThemeIsDark ? onlineTilesDark : onlineTilesLight;
-    if (top && !map.hasLayer(top)) top.addTo(map);
-    if (top) top.bringToFront();
+    if (onlineTilesLight && !map.hasLayer(onlineTilesLight)) onlineTilesLight.addTo(map);
+    if (onlineTilesLight) onlineTilesLight.bringToFront();
   }
 
   function applyNavMapOnlineBasemapLayers() {
     if (!navMap || !navMapOnlineMode) return;
     if (navMapOnlineTilesLight && navMap.hasLayer(navMapOnlineTilesLight)) navMap.removeLayer(navMapOnlineTilesLight);
-    if (navMapOnlineTilesDark && navMap.hasLayer(navMapOnlineTilesDark)) navMap.removeLayer(navMapOnlineTilesDark);
     if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
-    const top = siteThemeIsDark ? navMapOnlineTilesDark : navMapOnlineTilesLight;
-    if (top && !navMap.hasLayer(top)) top.addTo(navMap);
-    if (top) top.bringToFront();
+    if (navMapOnlineTilesLight && !navMap.hasLayer(navMapOnlineTilesLight)) navMapOnlineTilesLight.addTo(navMap);
+    if (navMapOnlineTilesLight) navMapOnlineTilesLight.bringToFront();
   }
 
   function initMap() {
@@ -1524,23 +1510,14 @@
       maxZoom: 19,
     });
 
-    // Online light: OSM standard. Online dark: CARTO dark (matches offline tile style). Local tiles underlay when online.
+    // Online basemap: always OSM standard. Local tiles remain the infield underlay.
     onlineTilesLight = L.tileLayer(OSM_TILE_URL, {
       minZoom: 2,
       maxZoom: 19,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · online (light)',
+        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors · online',
     });
-
-    onlineTilesDark = L.tileLayer(CARTO_DARK_TILE_URL, {
-      subdomains: "abcd",
-      minZoom: 2,
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" rel="noreferrer">CARTO</a> · online (dark)',
-    });
-
-    // Offline bundled EDC-area tiles (also underlay when online).
+    // Offline bundled EDC-area tiles (light style) and underlay when online.
     offlineTiles = L.tileLayer(BASEMAP_TILE_URL, {
       minZoom: 12,
       maxZoom: 19,
@@ -1596,7 +1573,6 @@
       } else {
         // Offline: remove online tiles, lock bounds, and snap back to EDC.
         if (onlineTilesLight && map.hasLayer(onlineTilesLight)) map.removeLayer(onlineTilesLight);
-        if (onlineTilesDark && map.hasLayer(onlineTilesDark)) map.removeLayer(onlineTilesDark);
         if (offlineTiles && !map.hasLayer(offlineTiles)) offlineTiles.addTo(map);
 
         map.options.maxBoundsViscosity = 1.0;
@@ -1920,6 +1896,7 @@
     requestAnimationFrame(() => {
       initNavMap();
       updateNavMiniMap();
+      if (els.navOverlay.dataset.open === "true") syncNavCompassPanel();
     });
   }
 
@@ -2009,7 +1986,8 @@
     if (els.navOverlay.dataset.open !== "true") return;
 
     const hasGps = !!(lastPosition && Number.isFinite(lastPosition.coords.latitude));
-    const liveH = hasGps ? navRealtimeHeading() : null;
+    // Live ring/arrow only when the Compass switch is on; GPS course alone must not show it.
+    const liveH = compassEnabled && hasGps ? navRealtimeHeading() : null;
 
     if (liveH != null) {
       els.navCompassLive.hidden = false;
@@ -2046,11 +2024,13 @@
     els.navBearing.textContent = Math.round(brg) + "° · " + cardinal(brg) + " to target";
     updateNavDebugReadout(here, dist, brg);
 
-    const deviceH = navRealtimeHeading();
+    const deviceH = compassEnabled ? navRealtimeHeading() : null;
     if (deviceH == null) {
       if (els.arrowWrap) els.arrowWrap.style.transform = "rotate(0deg)";
       if (els.navCompassRing) els.navCompassRing.style.transform = "rotate(0deg)";
-      els.navHint.textContent = "";
+      els.navHint.textContent = compassEnabled
+        ? "No heading yet — hold the phone flat and turn slowly, or walk in a straight line so GPS can show your course."
+        : "Turn Compass on for the live ring and arrow toward your target.";
     } else {
       // Rotate the ring so "N" points to true North, and rotate the arrow by the
       // absolute bearing to target. Net effect on screen: arrow points correctly
@@ -2226,12 +2206,6 @@
       maxZoom: 19,
     });
 
-    navMapOnlineTilesDark = L.tileLayer(CARTO_DARK_TILE_URL, {
-      subdomains: "abcd",
-      minZoom: 2,
-      maxZoom: 19,
-    });
-
     navMapOfflineTiles = L.tileLayer(BASEMAP_TILE_URL, {
       minZoom: 12,
       maxZoom: 19,
@@ -2273,7 +2247,6 @@
         applyNavMapOnlineBasemapLayers();
       } else {
         if (navMapOnlineTilesLight && navMap.hasLayer(navMapOnlineTilesLight)) navMap.removeLayer(navMapOnlineTilesLight);
-        if (navMapOnlineTilesDark && navMap.hasLayer(navMapOnlineTilesDark)) navMap.removeLayer(navMapOnlineTilesDark);
         if (navMapOfflineTiles && !navMap.hasLayer(navMapOfflineTiles)) navMapOfflineTiles.addTo(navMap);
 
         navMap.options.maxBoundsViscosity = 1.0;
