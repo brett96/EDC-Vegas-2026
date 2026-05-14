@@ -732,6 +732,13 @@
     return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
   }
 
+  /** Smallest difference between two compass headings, in [0, 180]. */
+  function smallestAngleDiffDeg(a, b) {
+    let d = Math.abs(a - b) % 360;
+    if (d > 180) d = 360 - d;
+    return d;
+  }
+
   function offsetLatLngMeters(from, bearing, meters) {
     const R = 6371000;
     const br = (bearing * Math.PI) / 180;
@@ -777,6 +784,19 @@
 
     const elapsedSec = Math.max(0, (now - fixTs) / 1000);
     if (heading == null || speed == null || speed <= 0.35 || elapsedSec < 0.05) return base;
+
+    // Dead reckoning ahead of the last fix smooths distance when you're walking *toward* the
+    // target (heading aligns with bearing-to-target). When you're walking *away*, GPS course
+    // and inferred motion often lag the true reversal, so extrapolation still nudges you toward
+    // the target and distance creeps up slowly. Skip DR when travel and target directions disagree.
+    if (
+      activeNavTarget &&
+      Number.isFinite(activeNavTarget.lat) &&
+      Number.isFinite(activeNavTarget.lng) &&
+      smallestAngleDiffDeg(heading, bearingDeg(base, { lat: activeNavTarget.lat, lng: activeNavTarget.lng })) > 100
+    ) {
+      return base;
+    }
 
     // Limit dead-reckoning horizon so estimates stay close to real GPS fixes.
     const projectSec = Math.min(elapsedSec, 2.2);
