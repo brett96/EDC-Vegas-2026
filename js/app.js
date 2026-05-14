@@ -1026,26 +1026,29 @@
     );
   }
 
-  function filteredScheduleSets() {
+  function scheduleSetPassesFilters(set) {
+    if (!set) return false;
     const q = (els.scheduleSearch && els.scheduleSearch.value ? els.scheduleSearch.value : "").trim().toLowerCase();
     const day = els.scheduleDay ? els.scheduleDay.value : "all";
     const stage = els.scheduleStage ? els.scheduleStage.value : "all";
     const genre = els.scheduleGenre ? els.scheduleGenre.value : "all";
     const selectedOnly = !!(els.scheduleSelectedOnly && els.scheduleSelectedOnly.checked);
-    const list = allScheduleSets.filter((set) => {
-      if (selectedOnly && !selectedScheduleSetIds.has(set.id)) return false;
-      if (day !== "all" && set.dayRaw !== day) return false;
-      if (stage !== "all" && set.stageKey !== stage) return false;
-      if (genre !== "all" && set.genre !== genre) return false;
-      if (!q) return true;
-      return (
-        set.artist.toLowerCase().includes(q) ||
-        set.genre.toLowerCase().includes(q) ||
-        set.stage.toLowerCase().includes(q) ||
-        set.dayLabel.toLowerCase().includes(q) ||
-        set.timeText.toLowerCase().includes(q)
-      );
-    });
+    if (selectedOnly && !selectedScheduleSetIds.has(set.id)) return false;
+    if (day !== "all" && set.dayRaw !== day) return false;
+    if (stage !== "all" && set.stageKey !== stage) return false;
+    if (genre !== "all" && set.genre !== genre) return false;
+    if (!q) return true;
+    return (
+      set.artist.toLowerCase().includes(q) ||
+      set.genre.toLowerCase().includes(q) ||
+      set.stage.toLowerCase().includes(q) ||
+      set.dayLabel.toLowerCase().includes(q) ||
+      set.timeText.toLowerCase().includes(q)
+    );
+  }
+
+  function filteredScheduleSets() {
+    const list = allScheduleSets.filter((set) => scheduleSetPassesFilters(set));
     list.sort((a, b) => {
       const aTimed = Number.isFinite(a.startMs);
       const bTimed = Number.isFinite(b.startMs);
@@ -1174,7 +1177,18 @@
       return;
     }
 
-    plan.itinerary.forEach((entry) => {
+    const itineraryFiltered = plan.itinerary.filter((entry) => scheduleSetPassesFilters(entry.set));
+    const untimedFiltered = plan.untimed.filter((set) => scheduleSetPassesFilters(set));
+    if (!itineraryFiltered.length && !untimedFiltered.length) {
+      const li = document.createElement("li");
+      li.className = "schedule-item";
+      li.innerHTML =
+        '<div class="schedule-meta">No saved sets match your current search or filters. Clear filters or pick another day/stage/genre.</div>';
+      els.scheduleItineraryList.appendChild(li);
+      return;
+    }
+
+    itineraryFiltered.forEach((entry) => {
       const set = entry.set;
       const li = document.createElement("li");
       li.className = "schedule-item";
@@ -1221,7 +1235,7 @@
       els.scheduleItineraryList.appendChild(li);
     });
 
-    plan.untimed.forEach((set) => {
+    untimedFiltered.forEach((set) => {
       const li = document.createElement("li");
       li.className = "schedule-item";
       li.dataset.selected = "true";
