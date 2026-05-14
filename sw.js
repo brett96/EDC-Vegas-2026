@@ -1,5 +1,5 @@
 /* Offline shell — precache resolves from this script's URL (root or /edc/ etc.) */
-const CACHE = "edc-vegas-2026-v63";
+const CACHE = "edc-vegas-2026-v65";
 
 function scopeBase() {
   const s = self.registration && self.registration.scope ? self.registration.scope : self.location.href;
@@ -30,16 +30,45 @@ const CORE_ASSETS_REL = [
   "icons/icon-512.png",
 ];
 
+/**
+ * Precache map tiles with bounded retries. Returns { failed, total }.
+ * Failures are reported to open clients so the UI can warn (offline map may be incomplete).
+ */
 function cacheTileUrls(cache, urls) {
-  return urls.reduce(
-    (chain, path) =>
-      chain.then(() =>
-        cache.add(scopedUrl(path)).catch((err) => {
-          console.warn("[sw] tile precache", path, err);
-        })
-      ),
-    Promise.resolve()
-  );
+  const list = Array.isArray(urls) ? urls : [];
+  return (async () => {
+    let failed = 0;
+    for (const path of list) {
+      const href = scopedUrl(path);
+      let lastErr = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await cache.add(href);
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+        }
+      }
+      if (lastErr) {
+        console.warn("[sw] tile precache failed after retries", path, lastErr);
+        failed++;
+      }
+    }
+    return { failed, total: list.length };
+  })();
+}
+
+function notifyClientsTilePrecacheStats(failed, total) {
+  if (!failed) return Promise.resolve();
+  return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    clients.forEach((c) => {
+      try {
+        c.postMessage({ type: "edc-precache-tiles", failed, total });
+      } catch (_) {}
+    });
+  });
 }
 
 self.addEventListener("install", (event) => {
@@ -53,10 +82,11 @@ self.addEventListener("install", (event) => {
         fetch(scopedUrl("data/tiles-manifest.json"))
           .then((r) => r.json())
           .then((urls) => {
-            if (!Array.isArray(urls)) return undefined;
+            if (!Array.isArray(urls)) return { failed: 0, total: 0 };
             return caches.open(CACHE).then((cache) => cacheTileUrls(cache, urls));
           })
       )
+      .then((tileStats) => notifyClientsTilePrecacheStats(tileStats && tileStats.failed, tileStats && tileStats.total))
       .then(() => self.skipWaiting())
       .catch((err) => {
         console.error("[sw] precache failed", err);

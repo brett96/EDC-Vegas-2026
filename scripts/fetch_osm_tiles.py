@@ -20,8 +20,10 @@ from __future__ import annotations
 import json
 import math
 import os
+import threading
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # LVMS infield (must stay in sync with INFIELD_BOUNDS in js/app.js)
 INFIELD_SOUTH = 36.26858
@@ -48,6 +50,21 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TILES_DIR = os.path.join(ROOT, "tiles")
 MANIFEST = os.path.join(ROOT, "data", "tiles-manifest.json")
 UA = "EDC-Vegas-2026-Offline-PWA/1.0 (one-time tile prefetch; CARTO Positron basemap)"
+
+# Gentle global pacing so we do not hammer the CDN even with parallel workers.
+_rate_lock = threading.Lock()
+_next_ok_at = 0.0
+
+
+def _pace():
+    global _next_ok_at
+    with _rate_lock:
+        now = time.monotonic()
+        wait = _next_ok_at - now
+        if wait > 0:
+            time.sleep(wait)
+        _next_ok_at = time.monotonic() + 0.04
+
 
 # CARTO Positron — same family as the in-app online layer; avoids OSM tile blocks.
 def tile_fetch_url(z: int, x: int, y: int) -> str:
@@ -96,9 +113,29 @@ def bbox_tile_ranges(z: int, south: float, west: float, north: float, east: floa
     return range(min(xs), max(xs) + 1), range(min(ys), max(ys) + 1)
 
 
+def download_one_tile(task: tuple[int, int, int, str, str]) -> tuple[str, int, bool]:
+    """Download a single tile; returns (rel_path, byte_len, skipped_existing)."""
+    z, x, y, rel, fp = task
+    if not FORCE_REDOWNLOAD and tile_file_usable(fp):
+        return rel, 0, True
+    _pace()
+    url = tile_fetch_url(z, x, y)
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = resp.read()
+    low = data[:8192].lower()
+    if len(data) < 100 or b"access blocked" in low or b"tile usage policy" in low:
+        raise RuntimeError(f"bad tile body ({len(data)} bytes)")
+    os.makedirs(os.path.dirname(fp), exist_ok=True)
+    with open(fp, "wb") as out:
+        out.write(data)
+    return rel, len(data), False
+
+
 def main() -> None:
     os.makedirs(os.path.join(ROOT, "data"), exist_ok=True)
     urls: list[str] = []
+    tasks: list[tuple[int, int, int, str, str]] = []
     for z, s, w, n, e in ZOOM_BOXES:
         xr, yr = bbox_tile_ranges(z, s, w, n, e)
         for x in xr:
@@ -108,23 +145,24 @@ def main() -> None:
                 path = os.path.join(TILES_DIR, str(z), str(x))
                 os.makedirs(path, exist_ok=True)
                 fp = os.path.join(path, f"{y}.png")
-                if not FORCE_REDOWNLOAD and tile_file_usable(fp):
-                    continue
-                url = tile_fetch_url(z, x, y)
-                req = urllib.request.Request(url, headers={"User-Agent": UA})
-                try:
-                    with urllib.request.urlopen(req, timeout=30) as resp:
-                        data = resp.read()
-                    low = data[:8192].lower()
-                    if len(data) < 100 or b"access blocked" in low or b"tile usage policy" in low:
-                        raise RuntimeError(f"bad tile body ({len(data)} bytes)")
-                    with open(fp, "wb") as out:
-                        out.write(data)
-                except Exception as ex:
-                    print("FAIL", url, ex)
-                    raise
-                time.sleep(0.15)
-                print("ok", z, x, y, len(data))
+                tasks.append((z, x, y, rel, fp))
+
+    max_workers = min(8, max(2, (os.cpu_count() or 4)))
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = {ex.submit(download_one_tile, t): t for t in tasks}
+        for fut in as_completed(futures):
+            t = futures[fut]
+            z, x, y, rel, _ = t
+            try:
+                _rrel, nbytes, skipped = fut.result()
+                if skipped:
+                    print("skip", z, x, y)
+                else:
+                    print("ok", z, x, y, nbytes)
+            except Exception as exc:
+                print("FAIL", tile_fetch_url(z, x, y), exc)
+                raise
+
     urls = sorted(set(urls))
     with open(MANIFEST, "w", encoding="utf-8") as f:
         json.dump(urls, f, indent=0)

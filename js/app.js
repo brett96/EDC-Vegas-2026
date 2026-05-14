@@ -22,6 +22,10 @@
   /** Next set starts at least this long after current set start → Leave By can relax to start + 1h (flexible). */
   const DECENT_GAP_BETWEEN_STARTS_MS = 90 * 60000;
   const FLEXIBLE_LEAVE_AFTER_START_MS = 60 * 60000;
+  /** Guardrail: refuse to gunzip suspiciously large share payloads (bytes after decompress). */
+  const SHARE_PAYLOAD_MAX_DECOMPRESSED = 512 * 1024;
+  /** Guardrail: refuse compressed blobs larger than this before decompress. */
+  const SHARE_PAYLOAD_MAX_COMPRESSED = 256 * 1024;
 
   /** Directory URL of the app (works at site root or under a path like /edc/). */
   function getAssetBaseUrl() {
@@ -34,6 +38,19 @@
   function asset(relPath) {
     const p = String(relPath || "").replace(/^\//, "");
     return new URL(p, ASSET_BASE_URL).href;
+  }
+
+  function debounce(fn, waitMs) {
+    let t = null;
+    return function debounced() {
+      const ctx = this;
+      const args = arguments;
+      clearTimeout(t);
+      t = setTimeout(() => {
+        t = null;
+        fn.apply(ctx, args);
+      }, waitMs);
+    };
   }
 
   const POI_DATA_URL = asset("data/festival-pois.json");
@@ -319,6 +336,8 @@
   let compassEnabled = false;
   /** User or OS blocked motion/orientation (e.g. iOS Safari prompt denied). */
   let compassMotionPermissionDenied = false;
+  /** After a successful compass attach, resume from background without re-prompting iOS. */
+  let compassMotionGrantedSession = false;
   /** Geolocation watch reported permission denied. */
   let geoPermissionDenied = false;
   const selectedCategories = new Set();
@@ -577,10 +596,12 @@
   }
 
   function stageLabelIcon(name) {
-    const safe = String(name).replace(/</g, "");
+    const span = document.createElement("span");
+    span.className = "edc-stage-label";
+    span.textContent = name == null ? "" : String(name);
     return L.divIcon({
       className: "edc-stage-label-wrap",
-      html: '<span class="edc-stage-label">' + safe + "</span>",
+      html: span,
       iconSize: [200, 34],
       iconAnchor: [100, 17],
     });
@@ -849,6 +870,13 @@
     return rows;
   }
 
+  /**
+   * Parse `MM/DD/YYYY` + `h:mm AM|PM` in **local** time.
+   *
+   * The bundled EDC schedule CSV advances the **Date** column after midnight (e.g. Friday
+   * after-midnight sets use `5/16/2026` with `Day=FRIDAY`), so timestamps already sort in
+   * real chronological order — no extra +24h adjustment is applied here.
+   */
   function parseScheduleDateTime(dateText, timeText) {
     const dateRaw = String(dateText || "").trim();
     const timeRaw = String(timeText || "").trim();
@@ -1433,6 +1461,16 @@
         navigator.serviceWorker.addEventListener("controllerchange", () => setOfflineBadge("ready"));
       })
       .catch(() => setOfflineBadge("basic"));
+
+    navigator.serviceWorker.addEventListener("message", (ev) => {
+      const d = ev.data;
+      if (!d || d.type !== "edc-precache-tiles") return;
+      const failed = Number(d.failed);
+      const total = Number(d.total);
+      if (!Number.isFinite(failed) || failed <= 0) return;
+      const tot = Number.isFinite(total) && total > 0 ? " / " + total : "";
+      toast("Offline map precache: " + failed + " tile(s) failed" + tot + ". Try again on Wi‑Fi.");
+    });
   }
 
   function pinIcon(color) {
@@ -1806,6 +1844,11 @@
   }
 
   function syncMarkersFromPins(pins) {
+    leafletMarkers.forEach((m) => {
+      try {
+        m.off();
+      } catch (_) {}
+    });
     pinsLayer.clearLayers();
     leafletMarkers.clear();
     pins.forEach((p) => {
@@ -2163,6 +2206,7 @@
       toast("Geolocation is not available in this browser.");
       return;
     }
+    if (typeof document !== "undefined" && document.hidden) return;
     if (geoWatchId != null) navigator.geolocation.clearWatch(geoWatchId);
     geoWatchId = navigator.geolocation.watchPosition(onGeoSuccess, onGeoErr, {
       enableHighAccuracy: true,
@@ -2192,6 +2236,7 @@
       }
       compassEnabled = true;
       syncCompassToggle(true);
+      compassMotionGrantedSession = true;
       updateNavReadout();
     };
     const maybePromise = ori.requestPermission && ori.requestPermission();
@@ -2227,6 +2272,40 @@
     compassEnabled = false;
     syncCompassToggle(false);
     updateNavReadout();
+  }
+
+  /** Pause GPS watch + compass listeners while the tab is backgrounded (battery). */
+  function pauseSensorsForPageHidden() {
+    if (geoWatchId != null) {
+      navigator.geolocation.clearWatch(geoWatchId);
+      geoWatchId = null;
+    }
+    if (orientationHooked) {
+      window.removeEventListener("deviceorientation", onDeviceOrientation, true);
+      window.removeEventListener("deviceorientationabsolute", onDeviceOrientation, true);
+      orientationHooked = false;
+    }
+    compassHeading = null;
+    compassEnabled = false;
+    updateNavReadout();
+  }
+
+  /** Resume GPS watch; re-attach compass if the user left the toggle on. */
+  function resumeSensorsForPageVisible() {
+    startGeolocation();
+    if (!els.compassToggleNav || !els.compassToggleNav.checked) return;
+    if (compassMotionGrantedSession) {
+      compassMotionPermissionDenied = false;
+      if (!orientationHooked) {
+        window.addEventListener("deviceorientation", onDeviceOrientation, true);
+        window.addEventListener("deviceorientationabsolute", onDeviceOrientation, true);
+        orientationHooked = true;
+      }
+      compassEnabled = true;
+      updateNavReadout();
+      return;
+    }
+    enableCompass();
   }
 
   function initNavMap() {
@@ -2392,6 +2471,15 @@
     return out;
   }
 
+  function tryDecodeURIComponent(s) {
+    if (s == null || s === "") return null;
+    try {
+      return decodeURIComponent(s);
+    } catch (_) {
+      return null;
+    }
+  }
+
   function extractShareB64FromAny(str) {
     if (!str) return null;
     const trimmed = str.trim();
@@ -2406,11 +2494,11 @@
     if (!b64 && trimmed.startsWith(LEGACY_SHARE_PREFIX)) b64 = trimmed.slice(LEGACY_SHARE_PREFIX.length);
     if (!b64) {
       const m = trimmed.match(/[?&#]m=([^&]+)/);
-      if (m) b64 = decodeURIComponent(m[1]);
+      if (m) b64 = tryDecodeURIComponent(m[1]);
     }
     if (!b64) {
       const m2 = trimmed.match(/[?&#]share=([^&]+)/);
-      if (m2) b64 = decodeURIComponent(m2[1]);
+      if (m2) b64 = tryDecodeURIComponent(m2[1]);
     }
     return b64 || null;
   }
@@ -2427,7 +2515,7 @@
     if (!b64 && trimmed.startsWith(SCHEDULE_SHARE_PREFIX)) b64 = trimmed.slice(SCHEDULE_SHARE_PREFIX.length);
     if (!b64) {
       const m = trimmed.match(/[?&#]sch=([^&]+)/);
-      if (m) b64 = decodeURIComponent(m[1]);
+      if (m) b64 = tryDecodeURIComponent(m[1]);
     }
     return b64 || null;
   }
@@ -2489,17 +2577,20 @@
       return null;
     }
     if (!bytes || !bytes.length) return null;
+    if (bytes.length > SHARE_PAYLOAD_MAX_COMPRESSED) return null;
     let jsonStr;
     if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
       if (typeof DecompressionStream === "undefined") return null;
       try {
         const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
         const out = await new Response(stream).arrayBuffer();
+        if (out.byteLength > SHARE_PAYLOAD_MAX_DECOMPRESSED) return null;
         jsonStr = new TextDecoder().decode(out);
       } catch {
         return null;
       }
     } else {
+      if (bytes.length > SHARE_PAYLOAD_MAX_DECOMPRESSED) return null;
       jsonStr = new TextDecoder().decode(bytes);
     }
     try {
@@ -2826,12 +2917,15 @@
   }
 
   function wireUi() {
+    const debouncedRenderPoiList = debounce(() => renderPoiList(), 200);
+    const debouncedRenderScheduleTab = debounce(() => renderScheduleTab(), 200);
+
     els.tabMeetups.addEventListener("click", () => setSheetTab("meetups"));
     els.tabVenue.addEventListener("click", () => setSheetTab("venue"));
     if (els.tabSchedule) els.tabSchedule.addEventListener("click", () => setSheetTab("schedule"));
 
-    els.poiSearch.addEventListener("input", () => renderPoiList());
-    if (els.scheduleSearch) els.scheduleSearch.addEventListener("input", () => renderScheduleTab());
+    els.poiSearch.addEventListener("input", debouncedRenderPoiList);
+    if (els.scheduleSearch) els.scheduleSearch.addEventListener("input", debouncedRenderScheduleTab);
     if (els.scheduleSelectedOnly) els.scheduleSelectedOnly.addEventListener("change", () => renderScheduleTab());
     if (els.scheduleDay) els.scheduleDay.addEventListener("change", () => renderScheduleTab());
     if (els.scheduleStage) els.scheduleStage.addEventListener("change", () => renderScheduleTab());
@@ -3237,6 +3331,11 @@
 
     wireSplitter();
     window.addEventListener("resize", onWindowResizePanel);
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) pauseSensorsForPageHidden();
+      else resumeSensorsForPageVisible();
+    });
 
     window.addEventListener("popstate", () => {
       if (els.navOverlay && els.navOverlay.dataset.open === "true") closeNav({ fromPopstate: true });
