@@ -77,20 +77,23 @@
         </nav>
 
         <div id="panel-meetups" class="sheet-panel" role="tabpanel" aria-labelledby="tab-meetups">
+          <div class="sheet-panel-body">
           <div id="coord-strip" class="coord-strip">GPS: waiting for permission…</div>
           <div class="sheet-toolbar">
             <button type="button" class="btn btn-primary btn-sm" id="btn-center">📍 Center</button>
             <button type="button" class="btn btn-sm" id="btn-pin" title="Drop a pin at the map center (GPS not used)">Pin at center</button>
-            <button type="button" class="btn btn-sm" id="btn-share">↗ Share</button>
+            <button type="button" class="btn btn-sm" id="btn-share">↗ Share all</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btn-import">⬇ Import</button>
           </div>
           <ul id="pin-list" class="pin-list" aria-live="polite"></ul>
           <p class="empty-hint" id="empty-meetups">
             No meetups yet. <strong>Press and hold</strong> the map (~1 second) where you want to meet, or use <strong>Pin at center</strong>, or <strong>⬇ Import</strong> a friend’s share link.
           </p>
+          </div>
         </div>
 
         <div id="panel-venue" class="sheet-panel" role="tabpanel" aria-labelledby="tab-venue" hidden>
+          <div class="sheet-panel-body">
           <div class="venue-toolbar">
             <input
               type="search"
@@ -103,9 +106,12 @@
           </div>
           <div id="cat-chips" class="cat-chips" role="group" aria-label="Filter by category"></div>
           <ul id="poi-list" class="pin-list poi-list" aria-live="polite"></ul>
+          </div>
         </div>
 
         <div id="panel-schedule" class="sheet-panel schedule-panel" role="tabpanel" aria-labelledby="tab-schedule" hidden>
+          <div class="sheet-panel-body schedule-panel-body">
+            <div class="schedule-sticky-stack">
           <div class="schedule-toolbar">
             <input
               type="search"
@@ -126,17 +132,15 @@
             <select id="schedule-genre" class="poi-cat" aria-label="Filter by genre"></select>
           </div>
           <p id="schedule-conflict-summary" class="schedule-conflict-summary" hidden></p>
-          <div id="schedule-scroll" class="schedule-scroll">
-            <section class="schedule-section schedule-section--itinerary">
-              <div class="schedule-section-head">
+              <div class="schedule-section-head schedule-itinerary-head">
                 <h3 class="schedule-section-title">My itinerary</h3>
                 <div class="schedule-share-actions" role="group" aria-label="Share or import saved schedule">
                   <button type="button" class="btn btn-sm" id="btn-schedule-share">↗ Share</button>
                   <button type="button" class="btn btn-ghost btn-sm" id="btn-schedule-import">⬇ Import</button>
                 </div>
               </div>
-              <ul id="schedule-itinerary-list" class="schedule-list" aria-live="polite"></ul>
-            </section>
+            </div>
+            <ul id="schedule-itinerary-list" class="schedule-list schedule-list--itinerary" aria-live="polite"></ul>
             <section class="schedule-section schedule-section--allsets">
               <h3 class="schedule-section-title schedule-section-title--sticky">All sets</h3>
               <ul id="schedule-set-list" class="schedule-list" aria-live="polite"></ul>
@@ -291,8 +295,8 @@
 
     <dialog id="dlg-share" class="modal">
       <div class="modal-body">
-        <h3>Share meetup pack</h3>
-        <p>
+        <h3 id="dlg-share-title">Share meetup pack</h3>
+        <p id="dlg-share-lead">
           Friends open this link once online, then choose <strong>Add to home screen</strong> so the same map and pins
           stay offline in their PWA.
         </p>

@@ -280,6 +280,8 @@
     hashImportScheduleCancel: document.getElementById("hash-import-schedule-cancel"),
     hashImportScheduleMerge: document.getElementById("hash-import-schedule-merge"),
     dlgShare: document.getElementById("dlg-share"),
+    dlgShareTitle: document.getElementById("dlg-share-title"),
+    dlgShareLead: document.getElementById("dlg-share-lead"),
     inpShareUrl: document.getElementById("inp-share-url"),
     btnCopyLink: document.getElementById("btn-copy-link"),
     btnSystemShare: document.getElementById("btn-system-share"),
@@ -1590,9 +1592,9 @@
 
   /**
    * Popup body: title, optional subtitle, Navigate → compass overlay.
-   * Optional `onMove` adds a "Move" button (meetup pins); POI popups omit it.
+   * Optional `onShare` / `onMove` for meetup pins; POI popups omit them.
    */
-  function createNavigatePopupEl(title, subtitle, onNavigate, onMove) {
+  function createNavigatePopupEl(title, subtitle, onNavigate, onMove, onShare) {
     const wrap = L.DomUtil.create("div", "map-nav-popup");
     const tit = L.DomUtil.create("div", "map-nav-popup-title", wrap);
     tit.textContent = title;
@@ -1600,24 +1602,40 @@
       const sub = L.DomUtil.create("div", "map-nav-popup-sub", wrap);
       sub.textContent = subtitle;
     }
-    const btn = L.DomUtil.create("button", "btn btn-primary btn-sm map-nav-popup-btn", wrap);
-    btn.type = "button";
-    btn.textContent = "Navigate";
-    L.DomEvent.on(btn, "mousedown dblclick", L.DomEvent.stopPropagation);
-    L.DomEvent.on(btn, "click", (ev) => {
-      L.DomEvent.stop(ev);
-      if (map) map.closePopup();
-      onNavigate();
-    });
+    const wirePopupBtn = (btn, handler) => {
+      L.DomEvent.on(btn, "mousedown dblclick", L.DomEvent.stopPropagation);
+      L.DomEvent.on(btn, "click", (ev) => {
+        L.DomEvent.stop(ev);
+        handler();
+      });
+    };
+    if (typeof onShare === "function") {
+      const actions = L.DomUtil.create("div", "map-nav-popup-actions", wrap);
+      const btnShare = L.DomUtil.create("button", "btn btn-ghost btn-sm map-nav-popup-btn", actions);
+      btnShare.type = "button";
+      btnShare.textContent = "Share";
+      wirePopupBtn(btnShare, onShare);
+      const btnNav = L.DomUtil.create("button", "btn btn-primary btn-sm map-nav-popup-btn", actions);
+      btnNav.type = "button";
+      btnNav.textContent = "Navigate";
+      wirePopupBtn(btnNav, () => {
+        if (map) map.closePopup();
+        onNavigate();
+      });
+    } else {
+      const btn = L.DomUtil.create("button", "btn btn-primary btn-sm map-nav-popup-btn", wrap);
+      btn.type = "button";
+      btn.textContent = "Navigate";
+      wirePopupBtn(btn, () => {
+        if (map) map.closePopup();
+        onNavigate();
+      });
+    }
     if (typeof onMove === "function") {
       const btnMove = L.DomUtil.create("button", "btn btn-ghost btn-sm map-nav-popup-btn", wrap);
       btnMove.type = "button";
       btnMove.textContent = "Move";
-      L.DomEvent.on(btnMove, "mousedown dblclick", L.DomEvent.stopPropagation);
-      L.DomEvent.on(btnMove, "click", (ev) => {
-        L.DomEvent.stop(ev);
-        onMove();
-      });
+      wirePopupBtn(btnMove, onMove);
     }
     return wrap;
   }
@@ -1965,11 +1983,20 @@
         icon: pinIcon(p.color),
         draggable: true,
       });
-      const pinPopupEl = createNavigatePopupEl(p.name, "Meetup pin", () => openNavForPin(p.id), () => {
-        m.closePopup();
-        if (m.dragging) m.dragging.enable();
-        toast("Drag pin to move");
-      });
+      const pinPopupEl = createNavigatePopupEl(
+        p.name,
+        "Meetup pin",
+        () => openNavForPin(p.id),
+        () => {
+          m.closePopup();
+          if (m.dragging) m.dragging.enable();
+          toast("Drag pin to move");
+        },
+        () => {
+          if (map) map.closePopup();
+          void openMeetupShareDialog([p]);
+        }
+      );
       m.bindPopup(pinPopupEl, {
         maxWidth: 300,
         className: "leaflet-popup-nav-shell",
@@ -2025,6 +2052,10 @@
       meta.appendChild(llEl);
       const actions = document.createElement("div");
       actions.className = "pin-actions";
+      const btnShare = document.createElement("button");
+      btnShare.type = "button";
+      btnShare.dataset.a = "share";
+      btnShare.textContent = "Share";
       const btnGo = document.createElement("button");
       btnGo.type = "button";
       btnGo.dataset.a = "go";
@@ -2033,6 +2064,7 @@
       btnDel.type = "button";
       btnDel.dataset.a = "del";
       btnDel.textContent = "Delete";
+      actions.appendChild(btnShare);
       actions.appendChild(btnGo);
       actions.appendChild(btnDel);
       li.appendChild(swatch);
@@ -2040,6 +2072,10 @@
       li.appendChild(actions);
       nameEl.textContent = p.name;
       llEl.textContent = p.lat.toFixed(5) + ", " + p.lng.toFixed(5);
+      btnShare.addEventListener("click", (e) => {
+        e.stopPropagation();
+        void openMeetupShareDialog([p]);
+      });
       btnGo.addEventListener("click", (e) => {
         e.stopPropagation();
         openNavForPin(p.id);
@@ -2794,9 +2830,52 @@
     return location.pathname.replace(/\/?$/, "/index.html");
   }
 
-  async function buildShareUrl() {
-    const token = await encodeShareTokenAsync(loadPins());
+  async function buildShareUrlForPins(pins) {
+    const token = await encodeShareTokenAsync(pins);
     return shareLinkPageBase() + "#" + SHARE_PREFIX + token;
+  }
+
+  async function buildShareUrl() {
+    return buildShareUrlForPins(loadPins());
+  }
+
+  async function openMeetupShareDialog(pins) {
+    if (!els.dlgShare || !els.inpShareUrl) return;
+    const list = Array.isArray(pins) ? pins.filter(Boolean) : [];
+    if (!list.length) {
+      toast("Nothing to share");
+      return;
+    }
+    const single = list.length === 1;
+    if (els.dlgShareTitle) {
+      els.dlgShareTitle.textContent = single ? "Share meetup pin" : "Share meetup pack";
+    }
+    if (els.dlgShareLead) {
+      els.dlgShareLead.textContent = single
+        ? "Send this link so a friend can import this meetup location into their app."
+        : "Friends open this link once online, then choose Add to home screen so the same map and pins stay offline in their PWA.";
+    }
+    els.inpShareUrl.value = "…";
+    els.dlgShare.showModal();
+    try {
+      els.inpShareUrl.value = await buildShareUrlForPins(list);
+    } catch {
+      els.inpShareUrl.value = "";
+      toast("Could not build share link");
+    }
+  }
+
+  function tryLockPortraitOrientation() {
+    try {
+      const standalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.matchMedia("(display-mode: fullscreen)").matches ||
+        window.matchMedia("(display-mode: minimal-ui)").matches ||
+        navigator.standalone === true;
+      if (!standalone) return;
+      const o = screen.orientation;
+      if (o && typeof o.lock === "function") o.lock("portrait").catch(() => {});
+    } catch (_) {}
   }
 
   async function encodeScheduleShareTokenAsync(setIds) {
@@ -3319,14 +3398,7 @@
         toast("Add at least one pin before sharing");
         return;
       }
-      els.inpShareUrl.value = "…";
-      els.dlgShare.showModal();
-      try {
-        els.inpShareUrl.value = await buildShareUrl();
-      } catch {
-        els.inpShareUrl.value = "";
-        toast("Could not build share link");
-      }
+      await openMeetupShareDialog(pins);
     });
 
     els.btnCopyLink.addEventListener("click", async () => {
@@ -3342,9 +3414,14 @@
 
     els.btnSystemShare.addEventListener("click", async () => {
       const url = els.inpShareUrl.value;
+      const singlePin = els.dlgShareTitle && els.dlgShareTitle.textContent === "Share meetup pin";
       if (navigator.share) {
         try {
-          await navigator.share({ title: "EDC 2026 meetups", text: "Offline meetup pins for EDC Vegas 2026", url });
+          await navigator.share({
+            title: singlePin ? "EDC 2026 meetup pin" : "EDC 2026 meetups",
+            text: singlePin ? "Meetup pin for EDC Vegas 2026" : "Offline meetup pins for EDC Vegas 2026",
+            url,
+          });
         } catch {
           /* user cancelled */
         }
@@ -3554,6 +3631,7 @@
   async function boot() {
     applyStoredPanelHeight();
     wireFooterInstallVisibility();
+    tryLockPortraitOrientation();
     initMap();
     registerSw();
     refreshFooterCacheVersion();
