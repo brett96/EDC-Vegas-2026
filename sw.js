@@ -1,5 +1,5 @@
 /* Offline shell — precache resolves from this script's URL (root or /edc/ etc.) */
-const CACHE = "edc-vegas-2026-v72";
+const CACHE = "edc-vegas-2026-v75";
 
 /** Set during install if tile precache had failures; flushed to clients after activate + claim. */
 let pendingTilePrecacheFailure = null;

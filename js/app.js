@@ -75,10 +75,13 @@
    * (u, v) layout coordinate into latitude/longitude over the real venue.
    * Tweak in 5–10 m increments after a field check. POI (u,v) values are traced from
    * assets/edc_map.jpg; they are not derived from Google Maps north-up imagery alone.
+   *
+   * Inset ~10% from the prior box so the projected oval sits inside the speedway
+   * infield arc (see `GROUND_SCALE` below). Keep in sync with fetch_osm_tiles.py.
    */
   const INFIELD_BOUNDS = L.latLngBounds(
-    [36.26858, -115.01757], // SW
-    [36.27582, -115.00430] // NE — keep in sync with fetch_osm_tiles.py
+    [36.26894, -115.01691], // SW
+    [36.27546, -115.00496] // NE
   );
   const MAP_BOUNDS = INFIELD_BOUNDS;
   const WIDE_BOUNDS = L.latLngBounds(
@@ -108,6 +111,13 @@
    *   270 → top of file = West
    */
   const ARTWORK_ROTATION_DEG = 45;
+
+  /**
+   * After `artworkUvToGroundXY`, scale nx/ny toward (0.5, 0.5) so the festival
+   * oval traced on edc_map.jpg fits inside the LVMS infield on a north-up basemap.
+   * POI/stage u,v stay tied to the artwork; only the ground projection tightens.
+   */
+  const GROUND_SCALE = 0.895;
 
   const PIN_COLORS = ["#ff2dbe", "#00f5ff", "#39ff14", "#ffd400", "#c86bff", "#ff6b35", "#ffffff"];
 
@@ -425,7 +435,11 @@
   }
 
   function uvToLatLng(bounds, u, v) {
-    const [nx, ny] = artworkUvToGroundXY(u, v);
+    let [nx, ny] = artworkUvToGroundXY(u, v);
+    if (GROUND_SCALE !== 1) {
+      nx = 0.5 + (nx - 0.5) * GROUND_SCALE;
+      ny = 0.5 + (ny - 0.5) * GROUND_SCALE;
+    }
     const north = bounds.getNorth();
     const south = bounds.getSouth();
     const west = bounds.getWest();
@@ -470,11 +484,11 @@
       name: "kineticFIELD",
       fill: "#ff2dbe",
       uvRing: [
-        [0.42, 0.22],
-        [0.44, 0.06],
-        [0.56, 0.04],
-        [0.56, 0.33],
-        [0.48, 0.23],
+        [0.435, 0.22],
+        [0.455, 0.06],
+        [0.575, 0.04],
+        [0.575, 0.33],
+        [0.495, 0.23],
       ],
     },
     {
@@ -1576,8 +1590,9 @@
 
   /**
    * Popup body: title, optional subtitle, Navigate → compass overlay.
+   * Optional `onMove` adds a "Move" button (meetup pins); POI popups omit it.
    */
-  function createNavigatePopupEl(title, subtitle, onNavigate) {
+  function createNavigatePopupEl(title, subtitle, onNavigate, onMove) {
     const wrap = L.DomUtil.create("div", "map-nav-popup");
     const tit = L.DomUtil.create("div", "map-nav-popup-title", wrap);
     tit.textContent = title;
@@ -1594,6 +1609,16 @@
       if (map) map.closePopup();
       onNavigate();
     });
+    if (typeof onMove === "function") {
+      const btnMove = L.DomUtil.create("button", "btn btn-ghost btn-sm map-nav-popup-btn", wrap);
+      btnMove.type = "button";
+      btnMove.textContent = "Move";
+      L.DomEvent.on(btnMove, "mousedown dblclick", L.DomEvent.stopPropagation);
+      L.DomEvent.on(btnMove, "click", (ev) => {
+        L.DomEvent.stop(ev);
+        onMove();
+      });
+    }
     return wrap;
   }
 
@@ -1935,11 +1960,16 @@
     pinsLayer.clearLayers();
     leafletMarkers.clear();
     pins.forEach((p) => {
+      // Leaflet only wires `marker.dragging` when draggable is true; keep it disabled until the user taps "Move" in the popup.
       const m = L.marker([p.lat, p.lng], {
         icon: pinIcon(p.color),
         draggable: true,
       });
-      const pinPopupEl = createNavigatePopupEl(p.name, "Meetup pin", () => openNavForPin(p.id));
+      const pinPopupEl = createNavigatePopupEl(p.name, "Meetup pin", () => openNavForPin(p.id), () => {
+        m.closePopup();
+        if (m.dragging) m.dragging.enable();
+        toast("Drag pin to move");
+      });
       m.bindPopup(pinPopupEl, {
         maxWidth: 300,
         className: "leaflet-popup-nav-shell",
@@ -1964,8 +1994,10 @@
           renderPinList();
           toast("Pin location updated");
         }
+        if (m.dragging) m.dragging.disable();
       });
       m.addTo(pinsLayer);
+      if (m.dragging) m.dragging.disable();
       leafletMarkers.set(p.id, m);
     });
   }
