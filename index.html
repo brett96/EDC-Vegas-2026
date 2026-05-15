@@ -111,7 +111,7 @@
 
         <div id="panel-schedule" class="sheet-panel schedule-panel" role="tabpanel" aria-labelledby="tab-schedule" hidden>
           <div class="sheet-panel-body schedule-panel-body">
-            <div class="schedule-sticky-stack">
+            <div id="schedule-sticky-stack" class="schedule-sticky-stack">
           <div class="schedule-toolbar">
             <input
               type="search"
@@ -132,15 +132,17 @@
             <select id="schedule-genre" class="poi-cat" aria-label="Filter by genre"></select>
           </div>
           <p id="schedule-conflict-summary" class="schedule-conflict-summary" hidden></p>
-              <div class="schedule-section-head schedule-itinerary-head">
+            </div>
+            <section class="schedule-section schedule-section--itinerary">
+              <div class="schedule-section-head">
                 <h3 class="schedule-section-title">My itinerary</h3>
                 <div class="schedule-share-actions" role="group" aria-label="Share or import saved schedule">
                   <button type="button" class="btn btn-sm" id="btn-schedule-share">↗ Share</button>
                   <button type="button" class="btn btn-ghost btn-sm" id="btn-schedule-import">⬇ Import</button>
                 </div>
               </div>
-            </div>
-            <ul id="schedule-itinerary-list" class="schedule-list schedule-list--itinerary" aria-live="polite"></ul>
+              <ul id="schedule-itinerary-list" class="schedule-list" aria-live="polite"></ul>
+            </section>
             <section class="schedule-section schedule-section--allsets">
               <h3 class="schedule-section-title schedule-section-title--sticky">All sets</h3>
               <ul id="schedule-set-list" class="schedule-list" aria-live="polite"></ul>

@@ -314,6 +314,7 @@
     panelMeetups: document.getElementById("panel-meetups"),
     panelVenue: document.getElementById("panel-venue"),
     panelSchedule: document.getElementById("panel-schedule"),
+    scheduleStickyStack: document.getElementById("schedule-sticky-stack"),
     poiSearch: document.getElementById("poi-search"),
     catChips: document.getElementById("cat-chips"),
     poiList: document.getElementById("poi-list"),
@@ -1425,6 +1426,25 @@
     });
   }
 
+  let scheduleStickyTopObserver = null;
+
+  function syncScheduleStickyTop() {
+    const stack = els.scheduleStickyStack;
+    const host = document.querySelector(".schedule-panel-body");
+    if (!stack || !host) return;
+    const h = Math.ceil(stack.getBoundingClientRect().height);
+    host.style.setProperty("--schedule-sticky-top", Math.max(0, h) + "px");
+  }
+
+  function ensureScheduleStickyTopObserver() {
+    if (!els.scheduleStickyStack || scheduleStickyTopObserver) return;
+    const host = document.querySelector(".schedule-panel-body");
+    if (!host) return;
+    scheduleStickyTopObserver = new ResizeObserver(() => syncScheduleStickyTop());
+    scheduleStickyTopObserver.observe(els.scheduleStickyStack);
+    if (els.scheduleConflictSummary) scheduleStickyTopObserver.observe(els.scheduleConflictSummary);
+  }
+
   function renderScheduleTab() {
     if (els.panelSchedule && els.scheduleSelectedOnly) {
       els.panelSchedule.dataset.savedOnly = els.scheduleSelectedOnly.checked ? "1" : "";
@@ -1444,6 +1464,7 @@
     }
     renderScheduleItinerary(plan);
     renderScheduleSetList(plan);
+    syncScheduleStickyTop();
   }
 
   function toggleScheduleSelection(setId) {
@@ -3101,6 +3122,10 @@
     els.panelMeetups.hidden = !isMeet;
     els.panelVenue.hidden = !isVenue;
     if (els.panelSchedule) els.panelSchedule.hidden = !isSchedule;
+    if (isSchedule) {
+      ensureScheduleStickyTopObserver();
+      requestAnimationFrame(() => syncScheduleStickyTop());
+    }
   }
 
   function isPwaStandaloneDisplay() {
@@ -3638,6 +3663,8 @@
     loadScheduleSelection();
     wireUi();
     renderScheduleTab();
+    ensureScheduleStickyTopObserver();
+    window.addEventListener("resize", debounce(() => syncScheduleStickyTop(), 150));
     setOnlineOfflineTitle();
     window.addEventListener("online", setOnlineOfflineTitle);
     window.addEventListener("offline", setOnlineOfflineTitle);
