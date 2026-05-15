@@ -29,7 +29,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 INFIELD_SOUTH = 36.26858
 INFIELD_NORTH = 36.27582
 INFIELD_WEST = -115.01757
-INFIELD_EAST = -115.0043
+INFIELD_EAST = -115.00430
 
 # Wider context box used for low zoom levels and zoom-out behavior
 WIDE_SOUTH = 36.245

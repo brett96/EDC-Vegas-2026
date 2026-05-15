@@ -77,8 +77,8 @@
    * assets/edc_map.jpg; they are not derived from Google Maps north-up imagery alone.
    */
   const INFIELD_BOUNDS = L.latLngBounds(
-    [36.26858, -115.01757], // SW — nudge east so UV layout sits infield vs Pit Rd/bleachers
-    [36.27582, -115.0043] // NE
+    [36.26858, -115.01757], // SW
+    [36.27582, -115.00430] // NE — keep in sync with fetch_osm_tiles.py
   );
   const MAP_BOUNDS = INFIELD_BOUNDS;
   const WIDE_BOUNDS = L.latLngBounds(
@@ -492,7 +492,7 @@
       name: "cosmicMEADOW",
       fill: "#6eb5ff",
       uvRing: [
-        [0.032, 0.31],
+        [0.05, 0.35],
         [0.245, 0.405],
         [0.355, 0.525],
         [0.385, 0.525],
@@ -549,14 +549,14 @@
       name: "wasteLAND",
       fill: "#ff9e40",
       uvRing: [
-        [0.032, 0.625],
-        [0.235, 0.618],
-        [0.365, 0.618],
-        [0.378, 0.77],
-        [0.325, 0.915],
-        [0.088, 0.94],
-        [0.048, 0.95],
-        [0.03, 0.768],
+        [0.2, 0.525],
+        [0.41, 0.518],
+        [0.52, 0.535],
+        [0.5, 0.67],
+        [0.42, 0.79],
+        [0.32, 0.81],
+        [0.28, 0.8],
+        [0.21, 0.668],
       ],
     },
     {
