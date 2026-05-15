@@ -28,8 +28,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # LVMS infield (must stay in sync with INFIELD_BOUNDS in js/app.js)
 INFIELD_SOUTH = 36.26858
 INFIELD_NORTH = 36.27582
-INFIELD_WEST = -115.01782
-INFIELD_EAST = -115.00455
+INFIELD_WEST = -115.01757
+INFIELD_EAST = -115.0043
 
 # Wider context box used for low zoom levels and zoom-out behavior
 WIDE_SOUTH = 36.245
